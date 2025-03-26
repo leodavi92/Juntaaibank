@@ -25,12 +25,15 @@ import {
 } from '@mui/material';
 import { Add, Group as GroupIcon, AttachMoney, ContentCopy, Payment } from '@mui/icons-material';
 import { useTransactions } from '../contexts/TransactionContext';
-import { useGroups } from '../contexts/GroupContext';  // Adicione este import
+import { useGroups } from '../contexts/GroupContext';
 
 function Groups() {
-  const { grupos, setGrupos } = useGroups();  // Mantenha apenas esta declaração
-  
-  // Adicione as funções de gerenciamento aqui
+  const { grupos, setGrupos } = useGroups();
+  const { transactions, addTransaction } = useTransactions(); // Certifique-se de que esta linha está presente apenas uma vez
+
+  // Remova qualquer declaração duplicada de transactions ou addTransaction
+  // Não deve haver outra linha como esta: const { transactions, addTransaction } = useTransactions();
+
   const handleGerenciarOpen = (grupo) => {
     setGrupoSelecionado(grupo);
     setGerenciarOpen(true);
@@ -40,11 +43,7 @@ function Groups() {
     setGerenciarOpen(false);
     setGrupoSelecionado(null);
   };
-  
-  // Remova o useState dos grupos
-  // const [grupos, setGrupos] = useState([...]);
-  
-  // Adicione este estado junto com os outros estados no início do componente
+
   const [gerenciarOpen, setGerenciarOpen] = useState(false);
   const [open, setOpen] = useState(false);
   const [depositoOpen, setDepositoOpen] = useState(false);
@@ -133,8 +132,60 @@ function Groups() {
   };
 
   const handleDeposito = (grupo) => {
+    const depositoPendente = transactions.find(t => 
+      t.status === 'pending' && 
+      t.type === 'deposit' && 
+      t.group === grupo.nome &&
+      t.user === "Você"
+    );
+
+    if (depositoPendente) {
+      setGrupoSelecionado(grupo);
+      setValorDeposito(depositoPendente.amount);
+      setCodigoPagamento(depositoPendente.pixCode);
+      setDepositoStatus('aguardando');
+      setDepositoOpen(true);
+      return;
+    }
+
     setGrupoSelecionado(grupo);
     setDepositoOpen(true);
+    setDepositoStatus('inicial');
+    setValorDeposito('');
+    setCodigoPagamento('');
+  };
+
+  const realizarDeposito = () => {
+      if (!valorDeposito || valorDeposito <= 0) {
+          alert('Por favor, insira um valor válido');
+          return;
+      }
+      
+      const hasPendingDeposit = transactions.some(t => 
+          t.status === 'pending' && 
+          t.type === 'deposit' && 
+          t.group === grupoSelecionado.nome &&
+          t.user === "Você"
+      );
+  
+      if (hasPendingDeposit) {
+          alert('Você já tem um depósito pendente. Aguarde a confirmação.');
+          return;
+      }
+  
+      const codigoPix = `PIX-${Math.random().toString(36).substr(2, 9)}`;
+      setCodigoPagamento(codigoPix);
+      setDepositoStatus('aguardando');
+      
+      addTransaction({
+          type: 'deposit',
+          amount: Number(valorDeposito),
+          user: "Você",
+          email: "teste@teste.com",
+          group: grupoSelecionado.nome,
+          pixCode: codigoPix,
+          status: 'pending'
+      });
   };
 
   const handleDepositoClose = () => {
@@ -144,34 +195,9 @@ function Groups() {
 
   const [valorDeposito, setValorDeposito] = useState('');
 
-  // Manter estes estados
   const [depositoStatus, setDepositoStatus] = useState('inicial');
   const [codigoPagamento, setCodigoPagamento] = useState('');
   const [pagamentosPendentes, setPagamentosPendentes] = useState([]);
-
-  // Simplificar a função realizarDeposito
-  const { addTransaction } = useTransactions();
-  
-  const realizarDeposito = () => {
-    if (!valorDeposito || valorDeposito <= 0) {
-      alert('Por favor, insira um valor válido');
-      return;
-    }
-    
-    const codigoPix = `PIX-${Math.random().toString(36).substr(2, 9)}`;
-    setCodigoPagamento(codigoPix);
-    setDepositoStatus('aguardando');
-    
-    // Adicionar a transação ao contexto
-    addTransaction({
-      type: 'deposit',
-      amount: Number(valorDeposito),
-      user: "Você",
-      email: "teste@teste.com",
-      group: grupoSelecionado.nome,
-      pixCode: codigoPix
-    });
-  };
 
   return (
     <Container maxWidth="lg">
@@ -241,7 +267,6 @@ function Groups() {
         ))}
       </Grid>
 
-      {/* Adicione o Dialog no final do componente, junto com os outros Dialogs */}
       <Dialog 
         open={gerenciarOpen} 
         onClose={handleGerenciarClose}
@@ -254,7 +279,6 @@ function Groups() {
         </DialogTitle>
         <DialogContent>
           <Box sx={{ mt: 2 }}>
-            {/* Informações do Grupo */}
             <Typography variant="h6" gutterBottom>Informações Gerais</Typography>
             <Grid container spacing={2}>
               <Grid item xs={12} md={4}>
@@ -275,13 +299,11 @@ function Groups() {
               </Grid>
             </Grid>
       
-            {/* Histórico de Transações */}
             <Typography variant="h6" sx={{ mt: 4, mb: 2 }}>Histórico de Transações</Typography>
             <Box sx={{ maxHeight: 200, overflow: 'auto' }}>
               {/* Aqui você pode adicionar uma tabela com o histórico */}
             </Box>
 
-            {/* Saques Pendentes */}
             {grupoSelecionado?.saquesPendentes?.length > 0 && (
               <>
                 <Typography variant="h6" sx={{ mt: 4, mb: 2 }}>Saques Pendentes</Typography>
@@ -306,7 +328,7 @@ function Groups() {
           <Button onClick={handleGerenciarClose}>Fechar</Button>
         </DialogActions>
       </Dialog>
-      {/* Adicione o Dialog de Depósito */}
+
       <Dialog open={depositoOpen} onClose={handleDepositoClose}>
         <DialogTitle>Realizar Depósito</DialogTitle>
         <DialogContent>
@@ -329,7 +351,6 @@ function Groups() {
         </DialogActions>
       </Dialog>
 
-      {/* Adicione o Dialog de Saque */}
       <Dialog open={saqueOpen} onClose={handleSaqueClose}>
         <DialogTitle>Realizar Saque</DialogTitle>
         <DialogContent>
@@ -369,7 +390,6 @@ function Groups() {
         </DialogActions>
       </Dialog>
 
-      {/* Adicione o Dialog de Criação de Grupo */}
       <Dialog open={open} onClose={handleClose}>
         <DialogTitle>Criar Novo Grupo</DialogTitle>
         <DialogContent>
@@ -408,52 +428,48 @@ function Groups() {
         </DialogActions>
       </Dialog>
 
-      {/* Adicione o Dialog de confirmação do PIX aqui, antes do fechamento do Container */}
-      {/* Dialog de confirmação do PIX */}
-            <Dialog open={depositoStatus === 'aguardando'}>
-              <DialogTitle>Confirmação de Depósito</DialogTitle>
-              <DialogContent>
-                <Alert severity="info" sx={{ mb: 2 }}>
-                  Importante: Guarde o código PIX para rastreamento do seu depósito.
-                </Alert>
-                <Alert severity="warning" sx={{ mb: 2 }}>
-                  O valor será creditado após a confirmação do pagamento.
-                </Alert>
-                <DialogContentText>
-                  Use o código PIX abaixo para realizar o depósito:
-                </DialogContentText>
-                <Box sx={{ display: 'flex', alignItems: 'center', mt: 2 }}>
-                  <TextField
-                    fullWidth
-                    value={codigoPagamento}
-                    InputProps={{
-                      readOnly: true,
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton onClick={() => navigator.clipboard.writeText(codigoPagamento)}>
-                            <ContentCopy />
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
-                </Box>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                  Valor do depósito: R$ {valorDeposito}
-                </Typography>
-              </DialogContent>
-              <DialogActions>
-                <Button onClick={() => {
-                  setDepositoStatus('inicial');
-                  handleDepositoClose();
-                  setValorDeposito('');
-                }}>
-                  Fechar
-                </Button>
-              </DialogActions>
-            </Dialog>
-
-      {/* ... resto dos Dialogs ... */}
+      <Dialog open={depositoStatus === 'aguardando'}>
+        <DialogTitle>Confirmação de Depósito</DialogTitle>
+        <DialogContent>
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Importante: Guarde o código PIX para rastreamento do seu depósito.
+          </Alert>
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            O valor será creditado após a confirmação do pagamento.
+          </Alert>
+          <DialogContentText>
+            Use o código PIX abaixo para realizar o depósito:
+          </DialogContentText>
+          <Box sx={{ display: 'flex', alignItems: 'center', mt: 2 }}>
+            <TextField
+              fullWidth
+              value={codigoPagamento}
+              InputProps={{
+                readOnly: true,
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton onClick={() => navigator.clipboard.writeText(codigoPagamento)}>
+                      <ContentCopy />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+            Valor do depósito: R$ {valorDeposito}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => {
+            setDepositoStatus('inicial');
+            handleDepositoClose();
+            setValorDeposito('');
+          }}>
+            Fechar
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }
