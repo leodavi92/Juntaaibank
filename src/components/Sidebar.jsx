@@ -1,4 +1,4 @@
-import { Drawer, List, ListItem, ListItemIcon, ListItemText, Box, Toolbar, Divider } from '@mui/material';
+import { Drawer, List, ListItemButton, ListItemIcon, ListItemText, Box, Toolbar, Divider } from '@mui/material';
 import { 
   Dashboard as DashboardIcon, 
   Group as GroupIcon, 
@@ -7,31 +7,35 @@ import {
   Logout 
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext'; // Adicionar esta importação
+import React from 'react'; // Adicionar para usar React.createElement
 
 const drawerWidth = 240;
 
-function Sidebar({ open, setDrawerOpen }) {
+function Sidebar({ open, toggleDrawer }) {
   const navigate = useNavigate();
-
+  const { user, logout: authLogout } = useAuth(); // Obter usuário e função de logout do contexto
+  
   const handleClose = () => {
-    setDrawerOpen(false);
+    toggleDrawer();
   };
 
   const handleNavigation = (path) => {
     navigate(path);
-    setDrawerOpen(false);
+    toggleDrawer();
   };
 
   const handleLogout = () => {
-    // Adicione aqui qualquer lógica de logout necessária (limpar tokens, etc)
-    setDrawerOpen(false);
+    // Usar a função de logout do contexto de autenticação
+    authLogout();
+    toggleDrawer();
     navigate('/');
   };
 
   // No array menuItems, adicione:
   const menuItems = [
     { text: 'Início', icon: <DashboardIcon />, path: '/dashboard' },
-    { text: 'Grupos', icon: <GroupIcon />, path: '/grupos' },
+    { text: 'Grupos', icon: <GroupIcon />, path: '/groups' },
     { text: 'Finanças', icon: <AccountBalance />, path: '/financas' },
     { text: 'Configurações', icon: <Settings />, path: '/configuracoes' },
   ];
@@ -54,25 +58,24 @@ function Sidebar({ open, setDrawerOpen }) {
       <Box sx={{ overflow: 'auto', display: 'flex', flexDirection: 'column', height: '100%' }}>
         <List>
           {menuItems.map((item) => (
-            <ListItem 
-              button 
+            <ListItemButton 
               key={item.text}
-              onClick={() => handleNavigation(item.path)} // Usa a nova função
+              onClick={() => handleNavigation(item.path)}
             >
               <ListItemIcon>{item.icon}</ListItemIcon>
               <ListItemText primary={item.text} />
-            </ListItem>
+            </ListItemButton>
           ))}
         </List>
         <Box sx={{ flexGrow: 1 }} />
         <Divider />
         <List>
-          <ListItem button onClick={handleLogout}>
+          <ListItemButton onClick={handleLogout}>
             <ListItemIcon>
               <Logout sx={{ color: 'error.main' }} />
             </ListItemIcon>
             <ListItemText primary="Sair" sx={{ color: 'error.main' }} />
-          </ListItem>
+          </ListItemButton>
         </List>
       </Box>
     </Drawer>
