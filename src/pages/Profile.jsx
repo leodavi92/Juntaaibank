@@ -14,17 +14,47 @@ import {
 } from '@mui/icons-material';
 import { useUser } from '../contexts/UserContext';
 
+// Alterar a linha de importação do contexto
 function Profile() {
-  // Usar updateUser em vez de setUser para garantir que o localStorage também seja atualizado
-  const { user, updateUser } = useUser();
+  // Mudar de updateUser para updateUserAfterLogin
+  const { user, updateUserAfterLogin } = useUser();
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
     severity: 'info'
   });
-  
+
+  // Adicionar a definição do iconComponents aqui
+  const iconComponents = {
+    Face: Face,
+    EmojiEmotions: EmojiEmotions,
+    Pets: Pets,
+    Sports: Sports,
+    LocalFlorist: LocalFlorist,
+    Star: Star,
+    Favorite: Favorite,
+    Mood: Mood,
+    MusicNote: MusicNote,
+    Palette: Palette
+  };
+
+  // Adicionar a definição do avatarOptions aqui
+  const avatarOptions = [
+    { iconName: 'Face', icon: <Face />, color: '#FF6B6B' },
+    { iconName: 'EmojiEmotions', icon: <EmojiEmotions />, color: '#4ECDC4' },
+    { iconName: 'Pets', icon: <Pets />, color: '#45B7D1' },
+    { iconName: 'Sports', icon: <Sports />, color: '#96CEB4' },
+    { iconName: 'LocalFlorist', icon: <LocalFlorist />, color: '#FFAD60' },
+    { iconName: 'Star', icon: <Star />, color: '#FFD93D' },
+    { iconName: 'Favorite', icon: <Favorite />, color: '#FF8B8B' },
+    { iconName: 'Mood', icon: <Mood />, color: '#98DFD6' },
+    { iconName: 'MusicNote', icon: <MusicNote />, color: '#B983FF' },
+    { iconName: 'Palette', icon: <Palette />, color: '#FF9F9F' }
+  ];
+
   // Adicionar useEffect para carregar dados do usuário se não estiverem disponíveis
+  // No useEffect, alterar a linha do token
   useEffect(() => {
     const fetchUserData = async () => {
       try {
@@ -36,7 +66,7 @@ function Profile() {
         
         setLoading(true);
         const userId = localStorage.getItem('userId');
-        const token = localStorage.getItem('userToken');
+        const token = localStorage.getItem('token'); // Alterado de 'userToken' para 'token'
         
         if (!userId || !token) {
           console.error('Usuário não autenticado');
@@ -57,15 +87,10 @@ function Profile() {
         const userData = await response.json();
         console.log('Dados recebidos do servidor:', userData);
         
-        // Atualizar o contexto do usuário
-        updateUser({
-          id: userId,
-          name: userData.name,
-          email: userData.email,
-          avatarData: userData.avatarData
-        });
+        // Remover chamada duplicada e usar apenas updateUserAfterLogin
+        await updateUserAfterLogin();
         
-        // Atualizar localStorage
+        // Atualizar localStorage com os dados necessários
         localStorage.setItem('userName', userData.name);
         localStorage.setItem('userData', JSON.stringify({
           email: userData.email,
@@ -85,43 +110,19 @@ function Profile() {
     };
     
     fetchUserData();
-  }, [user, updateUser]);
-  
-  // Resto do código permanece o mesmo
-  const iconComponents = {
-    Face: Face,
-    EmojiEmotions: EmojiEmotions,
-    Pets: Pets,
-    Sports: Sports,
-    LocalFlorist: LocalFlorist,
-    Star: Star,
-    Favorite: Favorite,
-    Mood: Mood,
-    MusicNote: MusicNote,
-    Palette: Palette
-  };
-
-  const avatarOptions = [
-    { iconName: 'Face', icon: <Face />, color: '#FF6B6B' },
-    { iconName: 'EmojiEmotions', icon: <EmojiEmotions />, color: '#4ECDC4' },
-    { iconName: 'Pets', icon: <Pets />, color: '#45B7D1' },
-    { iconName: 'Sports', icon: <Sports />, color: '#96CEB4' },
-    { iconName: 'LocalFlorist', icon: <LocalFlorist />, color: '#FFAD60' },
-    { iconName: 'Star', icon: <Star />, color: '#FFD93D' },
-    { iconName: 'Favorite', icon: <Favorite />, color: '#FF8B8B' },
-    { iconName: 'Mood', icon: <Mood />, color: '#98DFD6' },
-    { iconName: 'MusicNote', icon: <MusicNote />, color: '#B983FF' },
-    { iconName: 'Palette', icon: <Palette />, color: '#FF9F9F' }
-  ];
+  }, [user, updateUserAfterLogin]);
 
   const handleAvatarSelect = async (avatar) => {
     try {
       setLoading(true);
       
       const userId = localStorage.getItem('userId');
-      const token = localStorage.getItem('userToken');
+      const token = localStorage.getItem('token'); // Alterado de 'userToken' para 'token'
+      
+      console.log('Dados de autenticação:', { userId, token }); // Log para debug
       
       if (!userId || !token) {
+        console.error('Dados ausentes:', { userId: !!userId, token: !!token });
         throw new Error('Usuário não autenticado');
       }
       
@@ -129,9 +130,6 @@ function Profile() {
         iconName: avatar.iconName,
         color: avatar.color
       };
-      
-      console.log('Enviando dados do avatar:', avatarData);
-      console.log('ID do usuário:', userId);
       
       const response = await fetch(`http://localhost:3001/api/users/${userId}/avatar`, {
         method: 'PUT',
@@ -141,26 +139,15 @@ function Profile() {
         },
         body: JSON.stringify({ avatarData })
       });
-      
-      // Verificar se a resposta não é JSON
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        throw new Error(`Servidor retornou ${response.status}: Resposta não é JSON`);
-      }
-      
+  
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Erro ao atualizar avatar (${response.status})`);
+        throw new Error('Erro ao atualizar avatar');
       }
+  
+      const updatedUser = await response.json();
       
-      const data = await response.json();
-      console.log('Resposta do servidor:', data);
-      
-      // Atualizar o contexto do usuário com o novo avatar
-      updateUser({
-        ...user,
-        avatarData
-      });
+      // Usar apenas updateUserAfterLogin aqui também
+      await updateUserAfterLogin();
       
       setSnackbar({
         open: true,
@@ -171,7 +158,7 @@ function Profile() {
       console.error('Erro ao atualizar avatar:', error);
       setSnackbar({
         open: true,
-        message: error.message || 'Erro ao atualizar avatar',
+        message: 'Erro ao atualizar avatar',
         severity: 'error'
       });
     } finally {

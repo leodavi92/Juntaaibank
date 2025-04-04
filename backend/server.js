@@ -505,3 +505,41 @@ app.use((err, req, res, next) => {
     console.error(err.stack);
     res.status(500).json({ message: 'Erro interno do servidor' });
 });
+
+// Na parte onde você gera o link de redefinição de senha
+const resetPasswordLink = `http://localhost:5173/reset-password/${resetToken}`;
+
+// Atualizar a rota de redefinição de senha
+app.post('/api/reset-password', async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+    
+    const passwordReset = await PasswordReset.findOne({ token });
+    
+    if (!passwordReset) {
+      return res.status(400).json({
+        success: false,
+        message: 'Token inválido ou expirado'
+      });
+    }
+
+    // Atualizar a senha do usuário
+    const user = await User.findOne({ email: passwordReset.email });
+    user.password = newPassword;
+    await user.save();
+
+    // Remover o token usado
+    await passwordReset.deleteOne();
+
+    res.json({
+      success: true,
+      message: 'Senha atualizada com sucesso'
+    });
+  } catch (error) {
+    console.error('Erro na redefinição de senha:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao redefinir senha'
+    });
+  }
+});

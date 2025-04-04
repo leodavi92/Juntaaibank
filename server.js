@@ -96,7 +96,11 @@ const userSchema = new mongoose.Schema({
   password: String,
   verified: { type: Boolean, default: false },
   resetPasswordToken: String,
-  resetPasswordExpires: Date
+  resetPasswordExpires: Date,
+  avatarData: {
+    iconName: String,
+    color: String
+  }
 });
 
 // First define all models
@@ -373,7 +377,7 @@ app.post('/api/forgot-password', async (req, res) => {
             </p>
             
             <div style="text-align: center; margin: 40px 0;">
-              <a href="http://localhost:3000/reset-password/${resetToken}" 
+              <a href="http://localhost:5173/reset-password/${resetToken}" 
                  style="background-color: #1976d2; color: white; padding: 15px 30px; 
                         text-decoration: none; border-radius: 5px; font-weight: bold;
                         font-size: 16px; display: inline-block;">
@@ -662,6 +666,34 @@ app.get('/api/force-verify/:email', async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: 'Erro ao verificar usuário' });
+  }
+});
+
+// Adicionar esta nova rota para atualização do avatar
+app.put('/api/users/:userId/avatar', authenticateUser, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { avatarData } = req.body;
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { $set: { avatarData } },
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({ message: 'Usuário não encontrado' });
+    }
+
+    res.json({
+      email: user.email,
+      _id: user._id,
+      name: user.name,
+      avatarData: user.avatarData
+    });
+  } catch (error) {
+    console.error('Erro ao atualizar avatar:', error);
+    res.status(500).json({ message: 'Erro ao atualizar avatar' });
   }
 });
 

@@ -20,10 +20,9 @@ import ResetPassword from './pages/ResetPassword';
 import { UserProvider } from './contexts/UserContext';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
-// Remover esta linha duplicada
-// import { BrowserRouter as Router } from 'react-router-dom';
+import { BrowserRouter as Router } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
-// Remover esta importação ou renomeá-la
+// Remover esta linha que está causando o conflito
 // import Routes from './Routes';
 
 function App() {
@@ -48,10 +47,18 @@ function App() {
 function AppContent() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const location = useLocation();
-  const navigate = useNavigate(); // Certifique-se de que esta linha está presente
+  const navigate = useNavigate();
   
-  const isAuthPage = ['/login', '/admin-login', '/register', '/password-recovery', '/reset-password', '/email-verified'].includes(location.pathname) || 
-                     location.pathname.startsWith('/verify-email/');
+  // Adicionar reset-password à lista de páginas de autenticação
+  const isAuthPage = [
+    '/login', 
+    '/admin-login', 
+    '/register', 
+    '/password-recovery', 
+    '/email-verified'
+  ].includes(location.pathname) || 
+    location.pathname.startsWith('/verify-email/') ||
+    location.pathname.startsWith('/reset-password/'); // Adicionar esta linha
 
   // Adicionar um efeito para lidar com redirecionamentos da API
   useEffect(() => {
