@@ -118,7 +118,8 @@ const Navbar = memo(function Navbar({ toggleDrawer }) {
               sx={{ 
                 bgcolor: user?.avatarData?.color || 'secondary.main',
                 width: 40,
-                height: 40
+                height: 40,
+                border: '3px solid #000000' // Aumentando a espessura da borda de 2px para 3px
               }}
             >
               {user?.avatarData?.iconName ? React.createElement(iconComponents[user.avatarData.iconName]) : (user?.name?.[0] || '?')}

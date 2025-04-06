@@ -1,4 +1,7 @@
-import { Container, Paper, Typography, Box, Avatar, Grid, Snackbar, Alert, CircularProgress } from '@mui/material';
+import { 
+  Container, Paper, Typography, Box, Avatar, Grid, Snackbar, Alert, CircularProgress,
+  TextField, Button, Divider
+} from '@mui/material';
 import { useState, useEffect } from 'react';
 import { 
   Face, 
@@ -13,18 +16,168 @@ import {
   Palette
 } from '@mui/icons-material';
 import { useUser } from '../contexts/UserContext';
+import { useTheme } from '../contexts/ThemeContext';
+import { NumericFormat, PatternFormat } from 'react-number-format';
+import axios from 'axios';
+import API_BASE_URL from '../config/api';
 
-// Alterar a linha de importação do contexto
 function Profile() {
-  // Mudar de updateUser para updateUserAfterLogin
-  const { user, updateUserAfterLogin } = useUser();
+  // Modificar esta linha para incluir updateUserProfile
+  const { user, updateUserAfterLogin, updateUserProfile } = useUser();
+  const { setPrimaryColor } = useTheme();
+  
+  // Adicionar os novos estados
   const [loading, setLoading] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
+  // Atualizar o estado personalInfo
+  const [personalInfo, setPersonalInfo] = useState({
+    phone: user?.phone || '',
+    cpf: user?.cpf || '',
+    birthDate: user?.birthDate || '',
+    address: user?.address || ''
+  });
+  
+  // Função para validar CPF
+  const validateCPF = (cpf) => {
+    // Remover caracteres não numéricos
+    cpf = cpf.replace(/[^\d]/g, '');
+    
+    // Verificar se tem 11 dígitos
+    if (cpf.length !== 11) return false;
+    
+    // Verificar se todos os dígitos são iguais
+    if (/^(\d)\1+$/.test(cpf)) return false;
+    
+    // Validação do primeiro dígito verificador
+    let sum = 0;
+    for (let i = 0; i < 9; i++) {
+      sum += parseInt(cpf.charAt(i)) * (10 - i);
+    }
+    let remainder = sum % 11;
+    let digit = remainder < 2 ? 0 : 11 - remainder;
+    if (parseInt(cpf.charAt(9)) !== digit) return false;
+    
+    // Validação do segundo dígito verificador
+    sum = 0;
+    for (let i = 0; i < 10; i++) {
+      sum += parseInt(cpf.charAt(i)) * (11 - i);
+    }
+    remainder = sum % 11;
+    digit = remainder < 2 ? 0 : 11 - remainder;
+    if (parseInt(cpf.charAt(10)) !== digit) return false;
+    
+    return true;
+  };
+  
+  // Adicionar a função que faltava
+  // Na função handleUpdatePersonalInfo, modifique para:
+  // In your Profile.jsx file, replace the handleUpdatePersonalInfo function with:
+  
+  const handleUpdatePersonalInfo = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Verificar se os dados são válidos
+      if (!validateCPF(personalInfo.cpf)) {
+        setError('CPF inválido. Por favor, verifique.');
+        setLoading(false);
+        return;
+      }
+      
+      // Enviar dados para o servidor
+      const updatedUser = await updateUserProfile({
+        phone: personalInfo.phone,
+        cpf: personalInfo.cpf,
+        birthDate: personalInfo.birthDate,
+        address: personalInfo.address
+      });
+      
+      // Atualizar o estado local com os dados atualizados
+      setPersonalInfo({
+        phone: updatedUser.phone || '',
+        cpf: updatedUser.cpf || '',
+        birthDate: updatedUser.birthDate || '',
+        address: updatedUser.address || ''
+      });
+      
+      setSuccess('Informações pessoais atualizadas com sucesso!');
+      
+      // Aqui está o problema - linha 88 aproximadamente
+      // Verificar se updatedUser é válido antes de acessar suas propriedades
+      if (!updatedUser) {
+        throw new Error('Resposta do servidor não contém dados do usuário');
+      }
+      
+    } catch (error) {
+      console.log('=== ERRO DETALHADO ===');
+      console.log('Mensagem:', error.message);
+      console.log('Stack:', error.stack);
+      setError('Erro ao atualizar informações pessoais. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Na parte do JSX, substituir a Grid da biografia por endereço
+  <Grid container spacing={2}>
+    <Grid item xs={12} sm={6}>
+      <TextField
+        fullWidth
+        label="Telefone"
+        value={personalInfo.phone}
+        onChange={(e) => setPersonalInfo({...personalInfo, phone: e.target.value})}
+        disabled={!editing}
+      />
+    </Grid>
+    <Grid item xs={12} sm={6}>
+      <TextField
+        fullWidth
+        type="date"
+        label="Data de Nascimento"
+        value={personalInfo.birthDate}
+        onChange={(e) => setPersonalInfo({...personalInfo, birthDate: e.target.value})}
+        disabled={!editing}
+        InputLabelProps={{ shrink: true }}
+      />
+    </Grid>
+    <Grid item xs={12}>
+      <TextField
+        fullWidth
+        label="Endereço"
+        value={personalInfo.address}
+        onChange={(e) => setPersonalInfo({...personalInfo, address: e.target.value})}
+        disabled={!editing}
+        placeholder="Rua, número, complemento, cidade, estado"
+      />
+    </Grid>
+  </Grid>
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
     severity: 'info'
   });
 
+  // Modificar este useEffect para carregar a cor do localStorage primeiro
+  useEffect(() => {
+    const savedUserData = localStorage.getItem('userData');
+    if (savedUserData) {
+      const { avatarData } = JSON.parse(savedUserData);
+      if (avatarData?.color) {
+        setPrimaryColor(avatarData.color);
+      }
+    }
+  }, []); // Este efeito roda apenas uma vez ao montar o componente
+  
+  // Remover o primeiro useEffect e manter apenas este
+  useEffect(() => {
+    if (user?.avatarData?.color) {
+      setPrimaryColor(user.avatarData.color);
+    }
+  }, [user, setPrimaryColor]);
+  
   // Adicionar a definição do iconComponents aqui
   const iconComponents = {
     Face: Face,
@@ -40,9 +193,10 @@ function Profile() {
   };
 
   // Adicionar a definição do avatarOptions aqui
+  // No array avatarOptions, adicionar no início
   const avatarOptions = [
-    { iconName: 'Face', icon: <Face />, color: '#FF6B6B' },
-    { iconName: 'EmojiEmotions', icon: <EmojiEmotions />, color: '#4ECDC4' },
+    { iconName: 'Face', icon: <Face />, color: '#8A05BE' }, // Avatar padrão Nubank
+    { iconName: 'EmojiEmotions', icon: <EmojiEmotions />, color: '#FF6B6B' },
     { iconName: 'Pets', icon: <Pets />, color: '#45B7D1' },
     { iconName: 'Sports', icon: <Sports />, color: '#96CEB4' },
     { iconName: 'LocalFlorist', icon: <LocalFlorist />, color: '#FFAD60' },
@@ -66,7 +220,7 @@ function Profile() {
         
         setLoading(true);
         const userId = localStorage.getItem('userId');
-        const token = localStorage.getItem('token'); // Alterado de 'userToken' para 'token'
+        const token = localStorage.getItem('token');
         
         if (!userId || !token) {
           console.error('Usuário não autenticado');
@@ -115,14 +269,10 @@ function Profile() {
   const handleAvatarSelect = async (avatar) => {
     try {
       setLoading(true);
-      
       const userId = localStorage.getItem('userId');
-      const token = localStorage.getItem('token'); // Alterado de 'userToken' para 'token'
-      
-      console.log('Dados de autenticação:', { userId, token }); // Log para debug
+      const token = localStorage.getItem('token');
       
       if (!userId || !token) {
-        console.error('Dados ausentes:', { userId: !!userId, token: !!token });
         throw new Error('Usuário não autenticado');
       }
       
@@ -131,6 +281,7 @@ function Profile() {
         color: avatar.color
       };
       
+      // Salvar no MongoDB Atlas
       const response = await fetch(`http://localhost:3001/api/users/${userId}/avatar`, {
         method: 'PUT',
         headers: {
@@ -146,9 +297,19 @@ function Profile() {
   
       const updatedUser = await response.json();
       
-      // Usar apenas updateUserAfterLogin aqui também
+      // Atualizar o contexto do usuário
       await updateUserAfterLogin();
       
+      // Atualizar o tema
+      setPrimaryColor(avatar.color);
+      
+      // Atualizar localStorage mantendo outros dados existentes
+      const currentUserData = JSON.parse(localStorage.getItem('userData') || '{}');
+      localStorage.setItem('userData', JSON.stringify({
+        ...currentUserData,
+        avatarData: avatarData
+      }));
+  
       setSnackbar({
         open: true,
         message: 'Avatar atualizado com sucesso!',
@@ -208,7 +369,8 @@ function Profile() {
               width: 100, 
               height: 100, 
               mr: 3, 
-              bgcolor: user?.avatarData?.color || 'secondary.main'
+              bgcolor: user?.avatarData?.color || 'secondary.main',
+              border: '3px solid #000000' // Adicionando borda preta
             }}
           >
             {renderUserAvatar()}
@@ -229,10 +391,13 @@ function Profile() {
                   height: 60, 
                   cursor: 'pointer',
                   bgcolor: avatar.color,
-                  border: user?.avatarData?.color === avatar.color ? '2px solid #1976d2' : 'none',
+                  border: user?.avatarData?.color === avatar.color 
+                    ? '3px solid #000000' 
+                    : '2px solid rgba(0, 0, 0, 0.12)',
                   '&:hover': {
                     transform: 'scale(1.1)',
-                    transition: 'transform 0.2s'
+                    transition: 'transform 0.2s',
+                    boxShadow: '0 0 10px rgba(0,0,0,0.2)'
                   }
                 }}
                 onClick={() => handleAvatarSelect(avatar)}
@@ -242,18 +407,88 @@ function Profile() {
             </Grid>
           ))}
         </Grid>
+        
+        <Divider sx={{ my: 4 }} />
+        
+        <Box sx={{ mb: 4 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h6">Informações Pessoais</Typography>
+            <Button 
+              variant={editing ? "contained" : "outlined"}
+              onClick={() => editing ? handleUpdatePersonalInfo() : setEditing(true)}
+              color="primary"
+            >
+              {editing ? "Salvar" : "Editar"}
+            </Button>
+          </Box>
+
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
+
+          {success && (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              {success}
+            </Alert>
+          )}
+
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}>
+              <PatternFormat
+                format="###.###.###-##"
+                customInput={TextField}
+                value={personalInfo.cpf}
+                onValueChange={(values) => setPersonalInfo({...personalInfo, cpf: values.value})}
+                disabled={!editing}
+                fullWidth
+                label="CPF"
+                placeholder="000.000.000-00"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <PatternFormat
+                format="(##) #####-####"
+                customInput={TextField}
+                value={personalInfo.phone}
+                onValueChange={(values) => setPersonalInfo({...personalInfo, phone: values.value})}
+                disabled={!editing}
+                fullWidth
+                label="Telefone"
+                placeholder="(00) 00000-0000"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                type="date"
+                label="Data de Nascimento"
+                value={personalInfo.birthDate}
+                onChange={(e) => setPersonalInfo({...personalInfo, birthDate: e.target.value})}
+                disabled={!editing}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Endereço Completo"
+                value={personalInfo.address}
+                onChange={(e) => setPersonalInfo({...personalInfo, address: e.target.value})}
+                disabled={!editing}
+                placeholder="Rua, número, complemento, bairro, cidade, estado"
+              />
+            </Grid>
+          </Grid>
+        </Box>
+
+        <Snackbar open={snackbar.open} autoHideDuration={6000} onClose={handleCloseSnackbar}>
+          <Alert onClose={handleCloseSnackbar} severity={snackbar.severity}>
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
       </Paper>
-      
-      <Snackbar 
-        open={snackbar.open} 
-        autoHideDuration={6000} 
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
     </Container>
   );
 }

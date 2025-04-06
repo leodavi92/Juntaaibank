@@ -1,37 +1,57 @@
 const mongoose = require('mongoose');
 
 const groupSchema = new mongoose.Schema({
-  nome: {
+  name: {
     type: String,
     required: true
   },
-  meta: {
+  description: String,
+  goal: {
     type: Number,
     required: true
   },
-  descricao: String,
-  saldoAtual: {
+  balance: {
     type: Number,
     default: 0
   },
-  criador: {
-    type: String,
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
     required: true
   },
-  membros: [{
+  members: [{
     userId: {
-      type: String,
-      required: true
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
     },
-    nome: String,
-    contribuicao: {
+    role: {
+      type: String,
+      enum: ['admin', 'member'],
+      default: 'member'
+    },
+    contribution: {
       type: Number,
       default: 0
     }
+  }],
+  pendingWithdrawals: [{
+    amount: Number,
+    reason: String,
+    requestedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    status: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'pending'
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now
+    }
   }]
-}, { 
-  timestamps: true,
-  strict: true 
-});
+}, { timestamps: true });
 
-module.exports = mongoose.model('Group', groupSchema);
+const Group = mongoose.model('Group', groupSchema);
+module.exports = Group;

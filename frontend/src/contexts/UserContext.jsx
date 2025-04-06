@@ -32,3 +32,34 @@ const updateAvatar = async (avatarData) => {
     throw error;
   }
 };
+
+const updateUserProfile = async (profileData) => {
+  try {
+    const token = localStorage.getItem('token');
+    const userId = localStorage.getItem('userId');
+    
+    const response = await axios.put(
+      `http://localhost:3001/api/users/${userId}/personal-info`,  // URL correta
+      profileData,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    if (response.data.success) {
+      setUser(response.data.user);
+      return { success: true, user: response.data.user };
+    }
+    
+    return { success: false, message: response.data.message };
+  } catch (error) {
+    console.error('UserContext: Erro ao atualizar perfil:', error);
+    return { 
+      success: false, 
+      message: error.response?.data?.message || 'Erro ao atualizar perfil'
+    };
+  }
+};

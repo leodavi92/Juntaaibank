@@ -1,7 +1,8 @@
 import { Box, Toolbar } from '@mui/material';
 import { BrowserRouter, Routes, Route, useLocation, Navigate, useNavigate } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material';
-import { theme } from './theme';
+// Remover esta linha
+// import { theme } from './theme';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 import Login from './pages/Login';
@@ -22,23 +23,23 @@ import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import { BrowserRouter as Router } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
-// Remover esta linha que está causando o conflito
-// import Routes from './Routes';
+import { ThemeContextProvider } from './contexts/ThemeContext';
+// Remover a importação duplicada do UserProvider
 
 function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
+      <ThemeContextProvider>
         <UserProvider>
-          <GroupProvider>
-            <TransactionProvider>
-              <ThemeProvider theme={theme}>
+          <AuthProvider>
+            <GroupProvider>
+              <TransactionProvider>
                 <AppContent />
-              </ThemeProvider>
-            </TransactionProvider>
-          </GroupProvider>
+              </TransactionProvider>
+            </GroupProvider>
+          </AuthProvider>
         </UserProvider>
-      </AuthProvider>
+      </ThemeContextProvider>
     </BrowserRouter>
   );
 }

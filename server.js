@@ -3,6 +3,10 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const nodemailer = require('nodemailer');
+const jwt = require('jsonwebtoken');
+
+// Corrigir o caminho para o módulo de rotas
+const testProfileRoutes = require('./routes/testProfileRoutes');
 
 require('dotenv').config();
 
@@ -22,13 +26,25 @@ app.use(cors({
 
 app.use(express.json());
 
+// Use routes
+app.use('/api', testProfileRoutes);
+
 // MongoDB Connection
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
-  useUnifiedTopology: true
+  useUnifiedTopology: true,
+  serverSelectionTimeoutMS: 60000, // Aumenta o tempo limite para 60 segundos
+  socketTimeoutMS: 45000, // Timeout para operações de socket
+  connectTimeoutMS: 60000, // Timeout para conexão inicial
+  heartbeatFrequencyMS: 30000, // Frequência de heartbeat
+  retryWrites: true,
+  w: 'majority'
 })
 .then(() => console.log('Conectado ao MongoDB Atlas'))
-.catch(err => console.error('Erro de conexão com MongoDB:', err));
+.catch(err => {
+  console.error('Erro de conexão com MongoDB:', err);
+  console.error('URI de conexão:', process.env.MONGO_URI.replace(/:[^:]*@/, ':****@')); // Oculta a senha
+});
 
 // Adicionar índices para melhor performance
 // Definir schemas antes de usar
@@ -100,13 +116,20 @@ const userSchema = new mongoose.Schema({
   avatarData: {
     iconName: String,
     color: String
-  }
+  },
+  // Adicionar novos campos para o perfil do usuário com valores padrão
+  phone: { type: String, default: '' },
+  cpf: { type: String, default: '' },
+  birthDate: { type: String, default: '' },
+  address: { type: String, default: '' },
+  updatedAt: { type: Date, default: Date.now }
 });
 
 // First define all models
-const User = mongoose.model('User', userSchema);
-const Group = mongoose.model('Group', groupSchema);
-const Transaction = mongoose.model('Transaction', transactionSchema);
+// Verificar se o modelo já foi definido
+const User = mongoose.models.User || mongoose.model('User', userSchema);
+const Group = mongoose.models.Group || mongoose.model('Group', groupSchema);
+const Transaction = mongoose.models.Transaction || mongoose.model('Transaction', transactionSchema);
 
 // Then create indexes
 Group.collection.createIndex({ userId: 1 });
@@ -185,7 +208,7 @@ app.post('/api/register', async (req, res) => {
       Se o botão não funcionar, copie e cole este link no seu navegador:
       <br>
       <a href="http://localhost:5173/verify-email/${user._id}" style="color: #1976d2; word-break: break-all;">
-      http://localhost:5173/verify-email/${user._id}
+      http://localhost:5176/verify-email/${user._id}
       </a>
       </p>
       
@@ -246,7 +269,6 @@ app.get('/api/verify-email/:token', async (req, res) => {
   }
 });
 
-// REMOVER ESTE TRECHO DUPLICADO DE CÓDIGO (linhas ~245-310)
 // Na rota de registro, onde o email é enviado
 // const mailOptions = {
 //   from: `"JuntaAi Bank" <${process.env.GMAIL_USER}>`,
@@ -275,8 +297,6 @@ app.get('/api/verify-email/:token', async (req, res) => {
 // res.status(500).json({ message: 'Erro ao cadastrar usuário' });
 // }
 // });
-
-const jwt = require('jsonwebtoken');
 
 // Na rota de login (linha ~310)
 // Na rota de login, vamos modificar para dar uma mensagem mais clara
@@ -501,23 +521,47 @@ const authenticateUser = async (req, res, next) => {
   }
 };
 
-// Atualizar a rota de grupos
-// Remover a rota duplicada e manter apenas uma versão
-app.get('/api/groups', authenticateUser, async (req, res) => {
+// Rota para buscar grupos
+// No início do arquivo, após os requires
+
+// Adicionar o middleware de autenticação
+// Middleware de autenticação
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ 
+      success: false, 
+      message: 'Token não fornecido' 
+    });
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+    if (err) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Token inválido' 
+      });
+    }
+    req.user = user;
+    next();
+  });
+};
+
+// Rota para buscar grupos
+app.get('/api/groups', authenticateToken, async (req, res) => {
   try {
-    console.log('Buscando grupos para usuário:', req.userId);
-    const groups = await Group.find({
-      $or: [
-        { 'members.userId': req.userId },
-        { createdBy: req.userId }
-      ]
-    }).populate('members.userId', 'name email');
-    
-    console.log('Grupos encontrados:', groups);
+    const userId = req.user.userId;
+    const groups = await Group.find({ 'members.userId': userId }); // Corrigido para buscar corretamente
     res.json(groups);
   } catch (error) {
     console.error('Erro ao buscar grupos:', error);
-    res.status(500).json({ message: 'Erro ao buscar grupos' });
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erro ao buscar grupos',
+      error: error.message 
+    });
   }
 });
 
@@ -700,4 +744,99 @@ app.put('/api/users/:userId/avatar', authenticateUser, async (req, res) => {
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Servidor rodando na porta ${PORT}`);
+});
+
+// Rota para atualizar o perfil do usuário
+app.put('/api/test-update-profile', authenticateUser, async (req, res) => {
+  try {
+    const userId = req.userId;
+    const updateData = req.body;
+
+    console.log('=== ROTA /api/test-update-profile (PUT) ACESSADA ===');
+    console.log('Headers:', req.headers);
+    console.log('Body:', updateData);
+    console.log('Buscando usuário com ID:', userId);
+
+    // Primeiro, buscar o usuário para verificar o estado atual
+    const userBefore = await User.findById(userId);
+    if (!userBefore) {
+      return res.status(404).json({ message: 'Usuário não encontrado' });
+    }
+
+    console.log('Usuário atual:', userBefore);
+    console.log('Dados para atualização:', updateData);
+
+    // Usar replaceOne para garantir que todos os campos do esquema sejam incluídos
+    // Isso preserva os campos existentes e adiciona os novos
+    const existingData = userBefore.toObject();
+    const updateResult = await User.replaceOne(
+      { _id: userId },
+      {
+        ...existingData,
+        phone: updateData.phone || '',
+        cpf: updateData.cpf || '',
+        birthDate: updateData.birthDate || '',
+        address: updateData.address || '',
+        updatedAt: new Date()
+      }
+    );
+
+    console.log('Resultado da operação replaceOne:', updateResult);
+
+    // Buscar o usuário atualizado para retornar na resposta
+    const updatedUser = await User.findById(userId);
+    console.log('Usuário após atualização:', updatedUser);
+
+    // Verificar se os campos foram atualizados
+    if (updatedUser) {
+      console.log('Campos atualizados:', {
+        phone: updatedUser.phone,
+        cpf: updatedUser.cpf,
+        birthDate: updatedUser.birthDate,
+        address: updatedUser.address
+      });
+    }
+
+    res.json(updatedUser);
+  } catch (error) {
+    console.error('Erro ao atualizar perfil:', error);
+    res.status(500).json({ message: 'Erro ao atualizar perfil', error: error.message });
+  }
+});
+
+// Rota temporária para atualizar todos os usuários com os novos campos
+app.get('/api/update-all-users', async (req, res) => {
+  try {
+    // Encontrar todos os usuários
+    const users = await User.find({});
+    console.log(`Encontrados ${users.length} usuários para atualizar`);
+    
+    // Atualizar cada usuário para incluir os novos campos
+    const updatePromises = users.map(user => {
+      return User.updateOne(
+        { _id: user._id },
+        { 
+          $set: { 
+            phone: user.phone || '',
+            cpf: user.cpf || '',
+            birthDate: user.birthDate || '',
+            address: user.address || '',
+            updatedAt: new Date()
+          } 
+        }
+      );
+    });
+    
+    // Executar todas as atualizações
+    const results = await Promise.all(updatePromises);
+    console.log('Resultados das atualizações:', results);
+    
+    res.json({ 
+      message: `${users.length} usuários atualizados com sucesso`,
+      results 
+    });
+  } catch (error) {
+    console.error('Erro ao atualizar usuários:', error);
+    res.status(500).json({ message: 'Erro ao atualizar usuários', error: error.message });
+  }
 });
