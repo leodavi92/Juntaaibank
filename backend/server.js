@@ -7,6 +7,7 @@ const jwt = require('jsonwebtoken');
 
 // Corrigir o caminho para o módulo de rotas
 const testProfileRoutes = require('./routes/testProfileRoutes');
+const transactionRoutes = require('./routes/transactions');
 
 require('dotenv').config();
 
@@ -19,7 +20,8 @@ app.use(cors({
   allowedHeaders: [
     'Content-Type',
     'Authorization',
-    'Access-Control-Allow-Headers'
+    'Access-Control-Allow-Headers',
+    'user-id'
   ],
   credentials: true
 }));
@@ -28,6 +30,7 @@ app.use(express.json());
 
 // Use routes
 app.use('/api', testProfileRoutes);
+app.use('/api/transactions', transactionRoutes);
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGO_URI, {
@@ -326,9 +329,15 @@ app.post('/api/login', async (req, res) => {
     }
 
     // Gerar um token JWT real
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) {
+      console.error('JWT_SECRET não está definido');
+      return res.status(500).json({ message: 'Erro de configuração do servidor' });
+    }
+
     const token = jwt.sign(
-      { userId: user._id },
-      process.env.JWT_SECRET || 'sua-chave-secreta',
+      { userId: user._id.toString() },
+      jwtSecret,
       { expiresIn: '24h' }
     );
 
@@ -467,18 +476,7 @@ app.post('/api/reset-password', async (req, res) => {
   }
 });
 
-// Atualizar a configuração do CORS
-// Remover esta segunda configuração CORS (linhas ~414-424)
-// app.use(cors({
-//   origin: 'http://localhost:5173',
-//   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-//   allowedHeaders: [
-//     'Content-Type',
-//     'Authorization',
-//     'user-id'
-//   ],
-//   credentials: true
-// }));
+// Configuração CORS já definida no início do arquivo
 
 // Atualizar o middleware de autenticação para mostrar o email do usuário
 const authenticateUser = async (req, res, next) => {

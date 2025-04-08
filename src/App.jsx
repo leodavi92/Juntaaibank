@@ -1,14 +1,14 @@
 import { Box, Toolbar } from '@mui/material';
 import { BrowserRouter, Routes, Route, useLocation, Navigate, useNavigate } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material';
-// Remover esta linha
-// import { theme } from './theme';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Groups from './pages/Groups';
 import { useState, useEffect } from 'react'; // Adicionando useEffect
+// Remover esta linha duplicada
+// import { Routes, Route } from 'react-router-dom';
 import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
 import ProtectedAdminRoute from './components/ProtectedAdminRoute';
@@ -34,7 +34,21 @@ function App() {
           <AuthProvider>
             <GroupProvider>
               <TransactionProvider>
-                <AppContent />
+                <Routes>
+                  {/* Rotas Admin */}
+                  <Route path="/admin-login" element={<AdminLogin />} />
+                  <Route 
+                    path="/admin/dashboard" 
+                    element={
+                      <ProtectedAdminRoute>
+                        <AdminDashboard />
+                      </ProtectedAdminRoute>
+                    } 
+                  />
+                  
+                  {/* Rotas do Usuário */}
+                  <Route path="/*" element={<AppContent />} />
+                </Routes>
               </TransactionProvider>
             </GroupProvider>
           </AuthProvider>
@@ -44,22 +58,33 @@ function App() {
   );
 }
 
-// Componente separado para o conteúdo da aplicação
+// Novo componente para o layout admin
+function AdminLayout() {
+  return (
+    <Routes>
+      <Route path="/" element={<AdminDashboard />} />
+      <Route path="/dashboard" element={
+        <ProtectedAdminRoute>
+          <AdminDashboard />
+        </ProtectedAdminRoute>
+      } />
+    </Routes>
+  );
+}
+
+// AppContent agora só contém rotas de usuário
 function AppContent() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const location = useLocation();
-  const navigate = useNavigate();
   
-  // Adicionar reset-password à lista de páginas de autenticação
   const isAuthPage = [
     '/login', 
-    '/admin-login', 
     '/register', 
     '/password-recovery', 
-    '/email-verified'
+    '/email-verified',
   ].includes(location.pathname) || 
     location.pathname.startsWith('/verify-email/') ||
-    location.pathname.startsWith('/reset-password/'); // Adicionar esta linha
+    location.pathname.startsWith('/reset-password/');
 
   // Adicionar um efeito para lidar com redirecionamentos da API
   useEffect(() => {
@@ -90,18 +115,17 @@ function AppContent() {
           <Route path="/reset-password/:token" element={<ResetPassword />} />
           <Route path="/verify-email/:token" element={<EmailVerified />} />
           <Route path="/email-verified" element={<EmailVerified />} />
-          <Route path="/api/verify-email/:token" element={<Navigate to="/email-verified" replace />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/groups" element={<Groups />} />
           <Route path="/perfil" element={<Profile />} />
           <Route path="/configuracoes" element={<Settings />} />
-          <Route path="/admin-login" element={<AdminLogin />} />
-          <Route path="/admin-dashboard" element={<ProtectedAdminRoute><AdminDashboard /></ProtectedAdminRoute>} />
           <Route path="/" element={<Navigate to="/login" />} />
         </Routes>
       </Box>
     </Box>
   );
 }
+
+// Remover o componente AdminRoute antigo pois agora usamos o ProtectedAdminRoute
 
 export default App;

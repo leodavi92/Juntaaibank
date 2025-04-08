@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';  // Adicionar este import
 import {
   Container,
@@ -46,47 +46,63 @@ import { useTransactions } from '../contexts/TransactionContext';
 import { useGroups } from '../contexts/GroupContext';
 
 function AdminDashboard() {
+  const navigate = useNavigate();  // Move this to the top
   const [tabValue, setTabValue] = useState(0);
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [blockReason, setBlockReason] = useState('');
-
-  // Primeiro, remova setTransactions do useTransactions
-  const { transactions, updateTransaction } = useTransactions();
+  
+  const { transactions, fetchTransactions, updateTransaction } = useTransactions();
   const { grupos, updateGroupBalance } = useGroups();
+
+  useEffect(() => {
+    const adminToken = localStorage.getItem('adminToken');
+    if (!adminToken) {
+      navigate('/admin-login');
+      return;
+    }
+
+    const fetchAdminData = async () => {
+      try {
+        await fetchTransactions(true);
+      } catch (error) {
+        console.error('Erro ao carregar dados:', error);
+        if (error.response?.status === 401) {
+          localStorage.removeItem('adminToken');
+          navigate('/admin-login');
+        }
+      }
+    };
+
+    fetchAdminData();
+  }, [tabValue, navigate]);
 
   const handleApproveTransaction = async (transactionId) => {
     try {
-      const transaction = transactions.find(t => t.id === transactionId);
+      const transaction = transactions.find(t => t._id === transactionId);
       
       if (transaction?.type === 'deposit') {
         const valorDeposito = Number(transaction.amount);
         
         // Atualizar grupo primeiro
         const success = await updateGroupBalance(
-          transaction.group,
+          transaction.groupId,
           valorDeposito,
-          transaction.user
+          transaction.userId
         );
 
         if (success) {
           // Atualizar transação
           await updateTransaction(transactionId, { status: 'approved' });
-          
-          // Atualizar o estado local das transações
-          const updatedTransactions = transactions.map(t => 
-            t.id === transactionId ? { ...t, status: 'approved' } : t
-          );
-          
-          // Forçar uma re-renderização do componente
-          setTabValue(tabValue);
+          // Atualizar lista de transações
+          await fetchTransactions(true);
         } else {
-          alert('Erro ao atualizar o saldo do grupo');
+          throw new Error('Falha ao atualizar o saldo do grupo');
         }
       }
     } catch (error) {
       console.error('Erro:', error);
-      alert('Erro ao processar depósito');
+      alert('Erro ao processar depósito: ' + error.message);
     }
   };
 
@@ -124,7 +140,8 @@ function AdminDashboard() {
     setBlockReason('');
   };
 
-  const navigate = useNavigate();
+  // Remove this duplicate declaration
+  // const navigate = useNavigate();
 
   const handleLogout = () => {
     localStorage.removeItem('adminToken');
@@ -249,19 +266,33 @@ function AdminDashboard() {
                 {transactions
                   .filter(transaction => transaction.status === 'pending')
                   .map((transaction) => (
-                    <TableRow key={transaction.id}>
+                    <TableRow key={transaction._id}>
                       <TableCell>
                         <Chip
                           label={transaction.type === 'deposit' ? 'Depósito' : 'Saque'}
                           color={transaction.type === 'deposit' ? 'success' : 'warning'}
                         />
                       </TableCell>
-                      <TableCell>R$ {transaction.amount}</TableCell>
-                      <TableCell>{transaction.user}</TableCell>
-                      <TableCell>{transaction.email}</TableCell>
-                      <TableCell>{transaction.group}</TableCell>
-                      <TableCell>{transaction.pixCode}</TableCell>
-                      <TableCell>{transaction.date}</TableCell>
+                      <TableCell>R$ {transaction.amount.toFixed(2)}</TableCell>
+                      <TableCell>{transaction.userName || transaction.userId}</TableCell>
+                      <TableCell>{transaction.userEmail}</TableCell>
+                      <TableCell>{transaction.groupName || transaction.groupId}</TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          {transaction.pixCode}
+                          <IconButton 
+                            size="small" 
+                            onClick={() => {
+                              navigator.clipboard.writeText(transaction.pixCode);
+                            }}
+                          >
+                            <ContentCopy fontSize="small" />
+                          </IconButton>
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        {new Date(transaction.createdAt).toLocaleDateString('pt-BR')}
+                      </TableCell>
                       <TableCell>
                         <Button
                           startIcon={<Check />}
@@ -269,7 +300,7 @@ function AdminDashboard() {
                           variant="contained"
                           size="small"
                           sx={{ mr: 1 }}
-                          onClick={() => handleApproveTransaction(transaction.id)}
+                          onClick={() => handleApproveTransaction(transaction._id)}
                         >
                           Aprovar
                         </Button>
@@ -278,7 +309,7 @@ function AdminDashboard() {
                           color="error"
                           variant="outlined"
                           size="small"
-                          onClick={() => handleRejectTransaction(transaction.id)}
+                          onClick={() => handleRejectTransaction(transaction._id)}
                         >
                           Rejeitar
                         </Button>
@@ -365,5 +396,17 @@ function AdminDashboard() {
     </>
   );
 }
+
+// Remover este useEffect duplicado que está fora do componente
+// useEffect(() => {
+//   const fetchAdminData = async () => {
+//     try {
+//       await fetchTransactions(true);
+//     } catch (error) {
+//       console.error('Erro ao carregar dados:', error);
+//     }
+//   };
+//   fetchAdminData();
+// }, [tabValue]);
 
 export default AdminDashboard;

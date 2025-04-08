@@ -192,19 +192,46 @@ function Profile() {
     Palette: Palette
   };
 
-  // Adicionar a definição do avatarOptions aqui
-  // No array avatarOptions, adicionar no início
+  // Remover esta primeira definição de avatarOptions e manter apenas a segunda
+  // const avatarOptions = [
+  //   { iconName: 'Face', icon: <Face />, color: '#8A05BE' }, // Avatar padrão Nubank
+  //   { iconName: 'EmojiEmotions', icon: <EmojiEmotions />, color: '#FF6B6B' },
+  //   { iconName: 'Pets', icon: <Pets />, color: '#45B7D1' },
+  //   { iconName: 'Sports', icon: <Sports />, color: '#96CEB4' },
+  //   { iconName: 'LocalFlorist', icon: <LocalFlorist />, color: '#FFAD60' },
+  //   { iconName: 'Star', icon: <Star />, color: '#FFD93D' },
+  //   { iconName: 'Favorite', icon: <Favorite />, color: '#FF8B8B' },
+  //   { iconName: 'Mood', icon: <Mood />, color: '#98DFD6' },
+  //   { iconName: 'MusicNote', icon: <MusicNote />, color: '#B983FF' },
+  //   { iconName: 'Palette', icon: <Palette />, color: '#FF9F9F' }
+  // ];
+  
+  // Manter apenas esta definição com cores mais vibrantes
+  const avatarColors = [
+    '#8A05BE', // Roxo do avatar padrão (mantido como está)
+    '#d42626', // Vermelho mais intenso (atualizado)
+    '#00C853', // Verde mais vibrante
+    '#FF6D00', // Laranja mais intenso
+    '#1605ff', // Azul mais vibrante (atualizado)
+    '#ff0d63', // Rosa mais intenso (atualizado)
+    '#FFEA00', // Amarelo mais vibrante
+    '#00BFA5', // Verde-água mais intenso
+    '#AA00FF', // Roxo mais intenso
+    '#0d9fde', // Azul índigo mais intenso (atualizado)
+  ];
+  
+  // Manter apenas esta definição de avatarOptions
   const avatarOptions = [
-    { iconName: 'Face', icon: <Face />, color: '#8A05BE' }, // Avatar padrão Nubank
-    { iconName: 'EmojiEmotions', icon: <EmojiEmotions />, color: '#FF6B6B' },
-    { iconName: 'Pets', icon: <Pets />, color: '#45B7D1' },
-    { iconName: 'Sports', icon: <Sports />, color: '#96CEB4' },
-    { iconName: 'LocalFlorist', icon: <LocalFlorist />, color: '#FFAD60' },
-    { iconName: 'Star', icon: <Star />, color: '#FFD93D' },
-    { iconName: 'Favorite', icon: <Favorite />, color: '#FF8B8B' },
-    { iconName: 'Mood', icon: <Mood />, color: '#98DFD6' },
-    { iconName: 'MusicNote', icon: <MusicNote />, color: '#B983FF' },
-    { iconName: 'Palette', icon: <Palette />, color: '#FF9F9F' }
+    { iconName: 'Face', icon: <Face />, color: '#8A05BE' }, // Avatar padrão Nubank (mantido)
+    { iconName: 'EmojiEmotions', icon: <EmojiEmotions />, color: '#d42626' }, // Atualizado
+    { iconName: 'Pets', icon: <Pets />, color: '#1605ff' }, // Atualizado
+    { iconName: 'Sports', icon: <Sports />, color: '#00C853' },
+    { iconName: 'LocalFlorist', icon: <LocalFlorist />, color: '#FF6D00' },
+    { iconName: 'Star', icon: <Star />, color: '#FFEA00' },
+    { iconName: 'Favorite', icon: <Favorite />, color: '#ff0d63' }, // Atualizado
+    { iconName: 'Mood', icon: <Mood />, color: '#00BFA5' },
+    { iconName: 'MusicNote', icon: <MusicNote />, color: '#AA00FF' },
+    { iconName: 'Palette', icon: <Palette />, color: '#0d9fde' } // Atualizado
   ];
 
   // Adicionar useEffect para carregar dados do usuário se não estiverem disponíveis

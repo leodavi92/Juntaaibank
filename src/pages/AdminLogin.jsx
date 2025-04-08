@@ -1,54 +1,61 @@
 import { useState } from 'react';
-import { 
-  Container, 
-  Box, 
-  TextField, 
-  Button, 
-  Typography, 
-  Alert 
-} from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import {
+  Container,
+  Box,
+  TextField,
+  Button,
+  Typography,
+  Alert
+} from '@mui/material';
+import axios from 'axios';
 
 function AdminLogin() {
-  const [credentials, setCredentials] = useState({ username: '', password: '' });
+  const [credentials, setCredentials] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    // Aqui você pode adicionar sua lógica de autenticação
-    // Por exemplo, verificar se é o admin correto
-    if (credentials.username === 'admin' && credentials.password === 'sua_senha_segura') {
-      localStorage.setItem('adminToken', 'seu_token_seguro');
-      navigate('/admin/dashboard');
-    } else {
+    try {
+      // Para teste, usando credenciais fixas
+      if (credentials.email === 'admin@juntaai.com' && credentials.password === 'admin123') {
+        localStorage.setItem('adminToken', 'admin-token-test');
+        navigate('/admin/dashboard'); // Alterado para a rota correta
+        return;
+      }
+
+      const response = await axios.post('http://localhost:3001/api/admin/login', credentials);
+      if (response.data.token) {
+        localStorage.setItem('adminToken', response.data.token);
+        navigate('/admin/dashboard'); // Alterado para a rota correta
+      }
+    } catch (error) {
       setError('Credenciais inválidas');
     }
   };
 
   return (
-    <Container component="main" maxWidth="xs">
-      <Box
-        sx={{
-          marginTop: 8,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-        }}
-      >
-        <Typography component="h1" variant="h5">
-          Acesso Administrativo
+    <Container maxWidth="sm">
+      <Box sx={{ 
+        mt: 8,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center'
+      }}>
+        <Typography variant="h4" gutterBottom>
+          Admin Login
         </Typography>
-        {error && <Alert severity="error" sx={{ mt: 2, width: '100%' }}>{error}</Alert>}
-        <Box component="form" onSubmit={handleLogin} sx={{ mt: 1 }}>
+        {error && <Alert severity="error" sx={{ mb: 2, width: '100%' }}>{error}</Alert>}
+        <Box component="form" onSubmit={handleLogin} sx={{ width: '100%' }}>
           <TextField
             margin="normal"
             required
             fullWidth
-            label="Usuário"
+            label="Email"
             autoFocus
-            value={credentials.username}
-            onChange={(e) => setCredentials({ ...credentials, username: e.target.value })}
+            value={credentials.email}
+            onChange={(e) => setCredentials({ ...credentials, email: e.target.value })}
           />
           <TextField
             margin="normal"
