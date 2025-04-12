@@ -11,28 +11,23 @@ export function UserProvider({ children }) {
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        // Obter token e userId do localStorage
         const token = localStorage.getItem('token');
         const userId = localStorage.getItem('userId');
-        
-        console.log('UserContext: Verificando token e userId');
-        console.log('UserContext: Token disponível:', !!token);
-        console.log('UserContext: UserId disponível:', !!userId);
+        const isAdmin = localStorage.getItem('isAdmin') === 'true';
         
         if (!token || !userId) {
-          console.log('UserContext: Token ou userId não encontrados');
           setLoading(false);
           return;
         }
 
-        console.log('UserContext: Buscando dados do usuário com ID:', userId);
-        const response = await axios.get(`${API_BASE_URL}/api/users/${userId}`, {
+        // Ajustando a rota com base no tipo de usuário
+        const endpoint = isAdmin ? '/api/auth/admin/profile' : `/api/users/${userId}`;
+        const response = await axios.get(`${API_BASE_URL}${endpoint}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
         });
 
-        console.log('UserContext: Dados do usuário recebidos:', response.data);
         setUser(response.data);
       } catch (error) {
         console.error('UserContext: Erro ao buscar dados do usuário:', error);

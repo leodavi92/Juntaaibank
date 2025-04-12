@@ -12,20 +12,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Rota para obter uma transação específica
-router.get('/:id', async (req, res) => {
-  try {
-    const transaction = await Transaction.findById(req.params.id);
-    if (!transaction) {
-      return res.status(404).json({ message: 'Transação não encontrada' });
-    }
-    res.json(transaction);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// Rota para aprovar transação
+// Rota para aprovar transação - CORRIGIDA
 router.put('/admin/approve-transaction', async (req, res) => {
   try {
     const { _id, groupId, amount, type, user } = req.body;
@@ -95,6 +82,57 @@ router.put('/admin/approve-transaction', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Erro ao aprovar transação',
+      error: error.message
+    });
+  }
+});
+
+// Rota para obter uma transação específica
+router.get('/:id', async (req, res) => {
+  try {
+    const transaction = await Transaction.findById(req.params.id);
+    if (!transaction) {
+      return res.status(404).json({ message: 'Transação não encontrada' });
+    }
+    res.json(transaction);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Rota para atualizar o status de uma transação
+router.put('/:id', async (req, res) => {
+  try {
+    const { status } = req.body;
+    
+    console.log('Atualizando status da transação:', req.params.id, 'para:', status);
+    
+    const transaction = await Transaction.findById(req.params.id);
+    
+    if (!transaction) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Transação não encontrada' 
+      });
+    }
+    
+    transaction.status = status;
+    transaction.updatedAt = new Date();
+    
+    const updatedTransaction = await transaction.save();
+    
+    console.log('Transação atualizada com sucesso:', updatedTransaction);
+    
+    res.json({
+      success: true,
+      message: 'Status da transação atualizado com sucesso',
+      transaction: updatedTransaction
+    });
+  } catch (error) {
+    console.error('Erro ao atualizar status da transação:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Erro ao atualizar status da transação',
       error: error.message
     });
   }

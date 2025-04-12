@@ -31,11 +31,13 @@ import {
 } from '@mui/material';
 import { Add, Group as GroupIcon, AttachMoney, ContentCopy, Payment, Refresh } from '@mui/icons-material';
 import { useTransactions } from '../contexts/TransactionContext';
-import { useGroups } from '../contexts/GroupContext';  // Adicione este import
+import { useGroups } from '../contexts/GroupContext';
+import { useUser } from '../contexts/UserContext';  // Import useUser hook
 
 function Groups() {
   // Usar groups em vez de grupos para manter consistência com o contexto
   const { groups, loading, error, fetchGroups, criarGrupo } = useGroups();
+  const { user } = useUser();  // Add useUser hook to access current user data
   
   // Adicionar useEffect para debug
   useEffect(() => {
@@ -251,14 +253,38 @@ function Groups() {
                     </Typography>
                   </Box>
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                    {grupo.members && grupo.members.map((membro, index) => (
-                      <Chip
-                        key={membro.userId || index}
-                        avatar={<Avatar>{membro.name ? membro.name[0] : '?'}</Avatar>}
-                        label={`${membro.name || 'Membro'} - R$ ${membro.contribution || 0}`}
-                        variant="outlined"
-                      />
-                    ))}
+                    {grupo.members && grupo.members.map((membro, index) => {
+                      console.log('Dados do membro:', membro);
+                      const isCurrentUser = membro.userId === user?._id;
+                      const memberName = isCurrentUser ? user?.name : (membro.name || `Membro ${index + 1}`);
+                      const avatarColor = isCurrentUser ? user?.avatarData?.color : membro.avatarData?.color || '#1976d2';
+                      const contribution = membro.contribution || 0;
+                      
+                      return (
+                        <Chip
+                          key={membro._id || index}
+                          label={`${memberName} - R$ ${contribution.toFixed(2)}`}
+                          sx={{
+                            margin: 0.5,
+                            '& .MuiChip-label': {
+                              paddingLeft: '8px'
+                            },
+                            '&::before': {
+                              content: '"' + memberName.charAt(0).toUpperCase() + '"',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: '24px',
+                              height: '24px',
+                              borderRadius: '50%',
+                              backgroundColor: avatarColor,
+                              color: '#fff',
+                              marginLeft: '4px'
+                            }
+                          }}
+                        />
+                      );
+                    })}
                   </Box>
                 </CardContent>
                 <CardActions>
@@ -504,17 +530,25 @@ function Groups() {
           <Box>
             <Typography variant="h6" gutterBottom>Membros do Grupo</Typography>
             <List>
-              {grupoSelecionado?.members?.map((membro, index) => (
-                <ListItem key={membro.userId || index}>
-                  <ListItemAvatar>
-                    <Avatar>{membro.name ? membro.name[0] : '?'}</Avatar>
-                  </ListItemAvatar>
-                  <ListItemText 
-                    primary={membro.name || 'Membro'} 
-                    secondary={`Contribuição: R$ ${membro.contribution || 0}`} 
-                  />
-                </ListItem>
-              ))}
+              {grupoSelecionado?.members?.map((membro, index) => {
+                const isCurrentUser = membro.userId === user?._id;
+                const memberName = isCurrentUser ? user?.name : (membro.name || `Usuário ${membro.userId.substring(0, 5)}`);
+                const avatarColor = isCurrentUser ? user?.avatarData?.color : '#1976d2';
+                
+                return (
+                  <ListItem key={membro._id || index}>
+                    <ListItemAvatar>
+                      <Avatar sx={{ bgcolor: avatarColor }}>
+                        {memberName.charAt(0).toUpperCase()}
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText 
+                      primary={memberName}
+                      secondary={`Contribuição: R$ ${membro.contribution || 0}`} 
+                    />
+                  </ListItem>
+                );
+              })}
             </List>
 
             <Box sx={{ mt: 2 }}>

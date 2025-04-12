@@ -8,6 +8,7 @@ const jwt = require('jsonwebtoken');
 // Corrigir o caminho para o módulo de rotas
 const testProfileRoutes = require('./routes/testProfileRoutes');
 const transactionRoutes = require('./routes/transactions');
+const authRoutes = require('./routes/auth');
 
 require('dotenv').config();
 
@@ -15,15 +16,9 @@ const app = express();
 
 // Configuração CORS atualizada
 app.use(cors({
-  origin: '*', // Permite todas as origens
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: [
-    'Content-Type',
-    'Authorization',
-    'Access-Control-Allow-Headers',
-    'user-id'
-  ],
-  credentials: true
+  origin: 'http://localhost:5173',
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-access']
 }));
 
 app.use(express.json());
@@ -31,6 +26,13 @@ app.use(express.json());
 // Use routes
 app.use('/api', testProfileRoutes);
 app.use('/api/transactions', transactionRoutes);
+
+// Registrar rotas de autenticação
+app.use('/api/auth', authRoutes);
+
+// Registrar rotas de grupos
+const groupRoutes = require('./routes/groups');
+app.use('/api', groupRoutes);
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGO_URI, {
@@ -479,10 +481,11 @@ app.post('/api/reset-password', async (req, res) => {
 // Configuração CORS já definida no início do arquivo
 
 // Atualizar o middleware de autenticação para mostrar o email do usuário
+// Atualizar o middleware de autenticação
 const authenticateUser = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
-    console.log('Headers recebidos:', req.headers);
+    console.log('Headers completos recebidos:', req.headers);
 
     if (!authHeader) {
       console.log('Token não fornecido');
@@ -499,13 +502,19 @@ const authenticateUser = async (req, res, next) => {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'sua-chave-secreta');
       req.userId = decoded.userId;
       
-      // Buscar informações do usuário para mostrar o email
+      // Melhorar a verificação de admin
+      const isAdminHeader = req.headers['x-admin-access'];
+      console.log('Header de admin recebido:', isAdminHeader);
+      req.isAdmin = isAdminHeader === 'true';
+      
       const user = await User.findById(req.userId);
       if (user) {
-        console.log(`Usuário autenticado: ${req.userId} (${user.email})`);
-        console.log(`Nome do usuário: ${user.name}`);
-      } else {
-        console.log(`Usuário autenticado: ${req.userId} (usuário não encontrado)`);
+        console.log(`Usuário: ${user.email}`);
+        console.log(`Admin: ${req.isAdmin}`);
+        // Verificar se é o email do admin
+        if (user.email === 'admin@juntaai.com') {
+          req.isAdmin = true;
+        }
       }
       
       next();
@@ -711,6 +720,57 @@ app.get('/api/force-verify/:email', async (req, res) => {
   }
 });
 
+// Atualizar a rota de atualização de saldo do grupo
+app.put('/api/admin/groups/:groupId/balance', authenticateUser, async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const { amount, transactionId } = req.body;
+
+    console.log('Requisição recebida para atualizar saldo:');
+    console.log('Headers:', req.headers);
+    console.log('É admin:', req.isAdmin);
+    console.log('Dados recebidos:', { groupId, amount, transactionId });
+
+    if (!req.isAdmin) {
+      console.log('Acesso negado: usuário não é admin');
+      return res.status(403).json({ message: 'Acesso não autorizado' });
+    }
+
+    // Buscar o grupo e a transação
+    const group = await Group.findById(groupId);
+    const transaction = await Transaction.findById(transactionId);
+
+    if (!group) {
+      return res.status(404).json({ message: 'Grupo não encontrado' });
+    }
+
+    if (!transaction) {
+      return res.status(404).json({ message: 'Transação não encontrada' });
+    }
+
+    // Atualizar o saldo do grupo
+    group.balance = (group.balance || 0) + Number(amount);
+    await group.save();
+
+    // Atualizar o status da transação para aprovado
+    transaction.status = 'approved';
+    await transaction.save();
+
+    res.json({
+      success: true,
+      message: 'Saldo atualizado e transação aprovada com sucesso',
+      newBalance: group.balance,
+      transaction: transaction
+    });
+  } catch (error) {
+    console.error('Erro ao atualizar saldo:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao atualizar saldo do grupo'
+    });
+  }
+});
+
 // Adicionar esta nova rota para atualização do avatar
 app.put('/api/users/:userId/avatar', authenticateUser, async (req, res) => {
   try {
@@ -747,5 +807,41 @@ app.listen(PORT, '0.0.0.0', () => {
 // Rotas duplicadas foram removidas
 
 // Código comentado - rotas duplicadas foram removidas
+// Após as outras rotas registradas
+const adminRoutes = require('./routes/adminRoutes');
+app.use('/api/admin', adminRoutes);
 
-// Código comentado - rotas duplicadas foram removidas
+// Adicionar rota de validação de admin
+app.get('/api/auth/admin/validate', authenticateUser, async (req, res) => {
+  try {
+    const admin = await Admin.findById(req.userId);
+    if (!admin) {
+      return res.status(403).json({ isAdmin: false });
+    }
+    res.json({ isAdmin: true });
+  } catch (error) {
+    console.error('Erro na validação de admin:', error);
+    res.status(500).json({ message: 'Erro ao validar admin' });
+  }
+});
+
+// Adicionar rota para estatísticas do dashboard
+app.get('/api/admin/dashboard/stats', authenticateUser, async (req, res) => {
+  try {
+    if (!req.isAdmin) {
+      return res.status(403).json({ message: 'Acesso não autorizado' });
+    }
+    
+    const stats = {
+      totalUsers: await User.countDocuments(),
+      totalGroups: await Group.countDocuments(),
+      totalTransactions: await Transaction.countDocuments(),
+      pendingTransactions: await Transaction.countDocuments({ status: 'pending' })
+    };
+    
+    res.json(stats);
+  } catch (error) {
+    console.error('Erro ao buscar estatísticas:', error);
+    res.status(500).json({ message: 'Erro ao buscar estatísticas' });
+  }
+});

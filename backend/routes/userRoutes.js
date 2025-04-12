@@ -2,12 +2,13 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
+const auth = require('../middleware/auth');
 
 // Aqui está o problema - uma rota GET sem callback
 // router.get('/users/:userId', );
 
 // Corrija adicionando uma função de callback adequada
-router.get('/users/:userId', async (req, res) => {
+router.get('/users/:userId', auth, async (req, res) => {
   try {
     const { userId } = req.params;
     

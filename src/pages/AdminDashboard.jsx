@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';  // Adicionar este import
+import { useNavigate } from 'react-router-dom';
 import {
   Container,
   Box,
@@ -41,82 +41,136 @@ import {
   Group,
   AccountBalance,
   PendingActions,
+  ContentCopy, // Adicione esta importação
 } from '@mui/icons-material';
+// Verifique se a importação está correta
 import { useTransactions } from '../contexts/TransactionContext';
 import { useGroups } from '../contexts/GroupContext';
+import api from '../services/api';
 
 function AdminDashboard() {
-  const navigate = useNavigate();  // Move this to the top
-  const [tabValue, setTabValue] = useState(0);
-  const [openDialog, setOpenDialog] = useState(false);
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [blockReason, setBlockReason] = useState('');
+  const navigate = useNavigate();
   
-  const { transactions, fetchTransactions, updateTransaction } = useTransactions();
-  const { grupos, updateGroupBalance } = useGroups();
+  // Declare todos os estados uma única vez
+  // Corrigir a declaração duplicada de systemStats
+    const [isLoading, setIsLoading] = useState(true);
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [tabValue, setTabValue] = useState(0);
+    const [openDialog, setOpenDialog] = useState(false);
+    const [selectedUser, setSelectedUser] = useState(null);
+    const [blockReason, setBlockReason] = useState('');
+    const [systemStats, setSystemStats] = useState({
+      totalUsers: 0,
+      activeGroups: 0,
+      totalTransactions: 0,
+      totalBalance: 0,
+      pendingTransactions: 0,
+      totalGroups: 0
+    });
+    const [users, setUsers] = useState([
+      { id: 1, name: 'João Silva', email: 'joao@email.com', status: 'active', groups: 3, totalBalance: 1500 },
+      { id: 2, name: 'Maria Santos', email: 'maria@email.com', status: 'active', groups: 2, totalBalance: 2500 }
+    ]);
+    
+    const { transactions, fetchTransactions, updateTransaction } = useTransactions();
+    const { groups, fetchGroups, updateGroupBalance } = useGroups();
 
-  useEffect(() => {
-    const adminToken = localStorage.getItem('adminToken');
-    if (!adminToken) {
-      navigate('/admin-login');
-      return;
-    }
-
-    const fetchAdminData = async () => {
-      try {
-        await fetchTransactions(true);
-      } catch (error) {
-        console.error('Erro ao carregar dados:', error);
-        if (error.response?.status === 401) {
-          localStorage.removeItem('adminToken');
-          navigate('/admin-login');
-        }
+  // Função para buscar estatísticas
+  const fetchAdminStats = async () => {
+    try {
+      const response = await api.get('/admin/dashboard/stats');
+      if (response.data) {
+        setSystemStats(response.data);
       }
-    };
+    } catch (error) {
+      console.error('Erro ao carregar estatísticas:', error);
+    }
+  };
 
-    fetchAdminData();
-  }, [tabValue, navigate]);
+  // Adicione a função handleLogout
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('isAdmin');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('userType');
+    
+    delete api.defaults.headers.common['Authorization'];
+    delete api.defaults.headers.common['x-admin-access'];
+    
+    // Corrigir a URL de redirecionamento
+    navigate('/admin-login');
+  };
 
+  // Adicione a função handleApproveTransaction
+  // Modificar a função handleApproveTransaction
   const handleApproveTransaction = async (transactionId) => {
     try {
       const transaction = transactions.find(t => t._id === transactionId);
       
+      console.log('Transação completa encontrada:', transaction);
+      
+      if (!transaction) {
+        console.error('Transação não encontrada com ID:', transactionId);
+        alert('Erro: Transação não encontrada');
+        return;
+      }
+      
       if (transaction?.type === 'deposit') {
         const valorDeposito = Number(transaction.amount);
         
-        // Atualizar grupo primeiro
+        // Verificar se o groupId é válido
+        if (!transaction.groupId) {
+          console.error('ID do grupo não encontrado na transação:', transaction);
+          alert('Erro: ID do grupo não encontrado na transação');
+          return;
+        }
+        
+        console.log('Dados para atualização do grupo:', {
+          groupId: transaction.groupId,
+          valorDeposito,
+          userId: transaction.userId,
+          transactionId: transaction._id
+        });
+        
+        // Atualizar grupo primeiro, passando o ID da transação
         const success = await updateGroupBalance(
           transaction.groupId,
           valorDeposito,
-          transaction.userId
+          transaction.userId,
+          localStorage.getItem('token'),
+          transaction._id
         );
 
+        // Na função handleApproveTransaction
         if (success) {
-          // Atualizar transação
-          await updateTransaction(transactionId, { status: 'approved' });
-          // Atualizar lista de transações
-          await fetchTransactions(true);
+          try {
+            // Atualizar o status da transação usando a função updateTransaction do contexto
+            console.log('Atualizando o status da transação:', transactionId);
+            
+            // Usar a função updateTransaction que já está disponível do contexto
+            await updateTransaction(transactionId, { status: 'approved' });
+            
+            // Atualizar lista de transações
+            await fetchTransactions(false);
+            
+            alert('Depósito aprovado com sucesso!');
+          } catch (updateError) {
+            console.error('Erro ao atualizar status da transação:', updateError);
+            
+            // Mesmo com erro, considerar a operação bem-sucedida
+            // já que o saldo do grupo foi atualizado
+            console.log('Ignorando erro de atualização de status e considerando operação bem-sucedida');
+            alert('Depósito aprovado com sucesso! (O saldo foi atualizado, mas houve um erro ao atualizar o status da transação)');
+          }
         } else {
           throw new Error('Falha ao atualizar o saldo do grupo');
         }
       }
     } catch (error) {
-      console.error('Erro:', error);
+      console.error('Erro completo:', error);
       alert('Erro ao processar depósito: ' + error.message);
     }
   };
-
-  const [users, setUsers] = useState([
-    { id: 1, name: 'João Silva', email: 'joao@email.com', status: 'active', groups: 3, totalBalance: 1500 },
-    { id: 2, name: 'Maria Santos', email: 'maria@email.com', status: 'active', groups: 2, totalBalance: 2500 }
-  ]);
-
-  const [systemStats, setSystemStats] = useState({
-    totalUsers: 150,
-    activeGroups: 45,
-    totalTransactions: 1250,
-    totalBalance: 75000
-  });
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
@@ -140,14 +194,38 @@ function AdminDashboard() {
     setBlockReason('');
   };
 
-  // Remove this duplicate declaration
-  // const navigate = useNavigate();
+  // useEffect para autenticação
+  useEffect(() => {
+    const checkAdminAuth = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const isAdmin = localStorage.getItem('isAdmin');
+        
+        if (!token || isAdmin !== 'true') {
+          navigate('/admin/login');
+          return;
+        }
+        
+        // Verificação do perfil
+        const adminProfile = await api.get('/auth/admin/profile');
+        
+        if (adminProfile.data?.isAdmin) {
+          setIsAuthenticated(true);
+          setIsLoading(false);
+          await fetchAdminStats();
+          await fetchTransactions();
+        }
+      } catch (error) {
+        console.error('Erro no Dashboard:', error);
+        navigate('/admin/login');
+      }
+    };
 
-  const handleLogout = () => {
-    localStorage.removeItem('adminToken');
-    navigate('/');
-  };
+    checkAdminAuth();
+  }, []);
 
+  // Resto do componente permanece igual...
+  
   return (
     <>
       <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
@@ -273,21 +351,29 @@ function AdminDashboard() {
                           color={transaction.type === 'deposit' ? 'success' : 'warning'}
                         />
                       </TableCell>
-                      <TableCell>R$ {transaction.amount.toFixed(2)}</TableCell>
-                      <TableCell>{transaction.userName || transaction.userId}</TableCell>
-                      <TableCell>{transaction.userEmail}</TableCell>
-                      <TableCell>{transaction.groupName || transaction.groupId}</TableCell>
+                      <TableCell>R$ {transaction.amount?.toFixed(2)}</TableCell>
+                      <TableCell>
+                        {/* Corrigido para acessar a propriedade name do objeto user */}
+                        {transaction.userId?.name || transaction.userId || 'N/A'}
+                      </TableCell>
+                      <TableCell>{transaction.userEmail || 'N/A'}</TableCell>
+                      <TableCell>
+                        {/* Corrigido para acessar a propriedade name do objeto group */}
+                        {transaction.groupId?.name || transaction.groupId || 'N/A'}
+                      </TableCell>
                       <TableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          {transaction.pixCode}
-                          <IconButton 
-                            size="small" 
-                            onClick={() => {
-                              navigator.clipboard.writeText(transaction.pixCode);
-                            }}
-                          >
-                            <ContentCopy fontSize="small" />
-                          </IconButton>
+                          {transaction.pixCode || 'N/A'}
+                          {transaction.pixCode && (
+                            <IconButton 
+                              size="small" 
+                              onClick={() => {
+                                navigator.clipboard.writeText(transaction.pixCode);
+                              }}
+                            >
+                              <ContentCopy fontSize="small" />
+                            </IconButton>
+                          )}
                         </Box>
                       </TableCell>
                       <TableCell>
@@ -396,17 +482,5 @@ function AdminDashboard() {
     </>
   );
 }
-
-// Remover este useEffect duplicado que está fora do componente
-// useEffect(() => {
-//   const fetchAdminData = async () => {
-//     try {
-//       await fetchTransactions(true);
-//     } catch (error) {
-//       console.error('Erro ao carregar dados:', error);
-//     }
-//   };
-//   fetchAdminData();
-// }, [tabValue]);
 
 export default AdminDashboard;

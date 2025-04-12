@@ -8,7 +8,7 @@ const groupSchema = new mongoose.Schema({
   description: String,
   goal: {
     type: Number,
-    required: true
+    default: 0  // Tornar o campo opcional com valor padrão 0
   },
   balance: {
     type: Number,
@@ -53,5 +53,4 @@ const groupSchema = new mongoose.Schema({
   }]
 }, { timestamps: true });
 
-const Group = mongoose.model('Group', groupSchema);
-module.exports = Group;
+module.exports = mongoose.model('Group', groupSchema);

@@ -12,8 +12,8 @@ router.get('/', authenticateToken, async (req, res) => {
     console.log('Grupos:', JSON.stringify(allGroups, null, 2));
 
     const userGroups = await Group.find({
-      'membros.userId': req.user.userId.toString()
-    }).lean();
+      'members.userId': req.user.userId
+    }).populate('members.userId', 'name email avatarData').lean();
     
     console.log('Grupos do usuário:', {
       userId: req.user.userId,

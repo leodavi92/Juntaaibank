@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Box, Container, Grid, Paper, Typography, Button, Card, CardContent } from '@mui/material';
+import { Box, Container, Grid, Paper, Typography, Button, Card, CardContent, Avatar, Tooltip } from '@mui/material';
 import { Group, AccountBalance, TrendingUp, Add } from '@mui/icons-material';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -37,7 +37,10 @@ function Dashboard() {
           }
         });
         
+        // Dentro da função carregarGrupos
         console.log('Resposta da API:', response.data);
+        console.log('Estrutura do primeiro grupo:', response.data[0]);
+        console.log('Membros do primeiro grupo:', response.data[0]?.members);
         
         if (response.data) {
           setGrupos(response.data);
@@ -152,6 +155,29 @@ function Dashboard() {
                       <Typography variant="body2" color="text.secondary">
                         Membros: {grupo.members.length}
                       </Typography>
+                      <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
+                        {grupo.members.map((member, index) => {
+                          console.log('Dados do membro:', member);
+                          // Usar os dados do usuário atual se o ID corresponder
+                          const isCurrentUser = member.userId === user?._id;
+                          const memberName = isCurrentUser ? user.name : 'Usuário';
+                          const avatarColor = isCurrentUser && user.avatarData?.color;
+                          
+                          return (
+                            <Tooltip key={index} title={memberName}>
+                              <Avatar
+                                sx={{ 
+                                  width: 24, 
+                                  height: 24, 
+                                  bgcolor: avatarColor || 'primary.main' 
+                                }}
+                              >
+                                {memberName.charAt(0)}
+                              </Avatar>
+                            </Tooltip>
+                          );
+                        })}
+                      </Box>
                       <Button
                         variant="outlined"
                         size="small"

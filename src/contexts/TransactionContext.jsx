@@ -1,39 +1,38 @@
+import api from '../services/api';
 import { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 
 const TransactionContext = createContext();
 
-export function TransactionProvider({ children }) {
+export const TransactionProvider = ({ children }) => {
   const [transactions, setTransactions] = useState([]);
-
-  // Carregar transações ao iniciar
-  useEffect(() => {
-    fetchTransactions();
-  }, []);
 
   const fetchTransactions = async (isAdmin = false) => {
     try {
-      const token = isAdmin ? 
-        localStorage.getItem('adminToken') : 
-        localStorage.getItem('token');
+      // Usar o token correto
+      const token = localStorage.getItem('token');
+      
+      console.log('Token encontrado:', token ? 'Sim' : 'Não'); // Debug
+      console.log('É requisição admin?', isAdmin); // Debug
+
+      if (!token) {
+        console.error('Token não encontrado no localStorage');
+        throw new Error('Token não encontrado');
+      }
 
       const headers = {
         'Authorization': `Bearer ${token}`,
+        'x-admin-access': isAdmin ? 'true' : 'false',
         'Content-Type': 'application/json'
       };
 
-      // Adicionar isAdmin apenas se for true
-      if (isAdmin) {
-        headers['X-Admin-Access'] = 'true'; // Mudando o nome do header
-      }
-
-      const response = await axios.get(
-        'http://localhost:3001/api/transactions',
-        { headers }
-      );
+      console.log('Headers da requisição:', headers); // Debug
+      
+      const response = await api.get('/transactions', { headers });
       setTransactions(response.data);
     } catch (error) {
       console.error('Erro ao buscar transações:', error);
+      throw error;
     }
   };
 
@@ -78,11 +77,41 @@ export function TransactionProvider({ children }) {
     }
   };
 
+  const updateTransaction = async (transactionId, updateData) => {
+    try {
+      const token = localStorage.getItem('token');
+      
+      // Usar a instância api em vez de axios diretamente
+      const response = await api.put(`/transactions/${transactionId}`, updateData, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'x-admin-access': 'true'
+        }
+      });
+      
+      console.log('Resposta da atualização:', response.data);
+      
+      // Atualizar o estado local
+      setTransactions(prevTransactions => 
+        prevTransactions.map(t => 
+          t._id === transactionId ? { ...t, ...updateData } : t
+        )
+      );
+      
+      return response.data;
+    } catch (error) {
+      console.error('Erro ao atualizar transação:', error);
+      throw error;
+    }
+  };
+
+  // Adicione a função updateTransaction ao objeto de contexto
   return (
     <TransactionContext.Provider value={{ 
       transactions, 
       addTransaction,
-      fetchTransactions 
+      fetchTransactions,
+      updateTransaction // Adicionar a função updateTransaction aqui
     }}>
       {children}
     </TransactionContext.Provider>

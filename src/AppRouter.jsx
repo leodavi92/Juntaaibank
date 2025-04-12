@@ -6,6 +6,7 @@ import ForgotPassword from './pages/ForgotPassword';
 import Dashboard from './pages/Dashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
+import ProtectedAdminRoute from './components/ProtectedAdminRoute';
 
 function AppRouter() {
   // Função para verificar se o usuário já está logado
@@ -30,9 +31,9 @@ function AppRouter() {
         } />
         
         <Route path="/admin/dashboard" element={
-          <ProtectedRoute adminRequired={true}>
+          <ProtectedAdminRoute>
             <AdminDashboard />
-          </ProtectedRoute>
+          </ProtectedAdminRoute>
         } />
         
         {/* Redirecionar rotas desconhecidas */}

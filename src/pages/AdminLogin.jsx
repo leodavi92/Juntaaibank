@@ -8,7 +8,7 @@ import {
   Typography,
   Alert
 } from '@mui/material';
-import axios from 'axios';
+import api from '../services/api';  // Corrija a importação do api
 
 function AdminLogin() {
   const [credentials, setCredentials] = useState({ email: '', password: '' });
@@ -18,20 +18,70 @@ function AdminLogin() {
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
-      // Para teste, usando credenciais fixas
-      if (credentials.email === 'admin@juntaai.com' && credentials.password === 'admin123') {
-        localStorage.setItem('adminToken', 'admin-token-test');
-        navigate('/admin/dashboard'); // Alterado para a rota correta
-        return;
-      }
+      console.log('=== Iniciando processo de login admin ===');
+      const response = await api.post('/auth/admin/login', credentials);
+      console.log('Resposta do login:', response.data);
+      
+      const { token } = response.data;
+      
+      if (token) {
+        const tokenParts = token.split('.');
+        const payload = JSON.parse(atob(tokenParts[1]));
+        const userId = payload.userId;
+        
+        console.log('Dados extraídos do token:', {
+          userId,
+          isAdmin: payload.isAdmin,
+          exp: new Date(payload.exp * 1000).toLocaleString()
+        });
+        
+        // Limpar localStorage antes de adicionar novos dados
+        localStorage.clear();
+        
+        // Salvar dados no localStorage
+        localStorage.setItem('token', token);
+        localStorage.setItem('isAdmin', 'true');
+        localStorage.setItem('userType', 'admin');
+        localStorage.setItem('userId', userId);
+        
+        // Configurar headers globais do axios
+        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        api.defaults.headers.common['x-admin-access'] = 'true';
+        
+        console.log('Verificando localStorage após salvamento:', {
+          token: !!localStorage.getItem('token'),
+          isAdmin: localStorage.getItem('isAdmin'),
+          userId: localStorage.getItem('userId'),
+          userType: localStorage.getItem('userType')
+        });
 
-      const response = await axios.post('http://localhost:3001/api/admin/login', credentials);
-      if (response.data.token) {
-        localStorage.setItem('adminToken', response.data.token);
-        navigate('/admin/dashboard'); // Alterado para a rota correta
+        // Verificar perfil admin
+        try {
+          console.log('Verificando perfil admin...');
+          const userResponse = await api.get('/auth/admin/profile');
+          console.log('Perfil admin carregado:', userResponse.data);
+          
+          if (userResponse.data) {
+            console.log('✅ Login bem sucedido, redirecionando...');
+            // Usar navigate ao invés de window.location
+            navigate('/admin/dashboard');
+          } else {
+            throw new Error('Dados do perfil vazios');
+          }
+        } catch (profileError) {
+          console.error('Erro ao carregar perfil:', {
+            erro: profileError,
+            status: profileError.response?.status,
+            data: profileError.response?.data
+          });
+          throw profileError;
+        }
       }
     } catch (error) {
-      setError('Credenciais inválidas');
+      console.error('Erro no processo de login:', error);
+      setError(error.response?.data?.message || 'Erro ao realizar login');
+      // Limpar localStorage em caso de erro
+      localStorage.clear();
     }
   };
 

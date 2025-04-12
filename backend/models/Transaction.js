@@ -26,7 +26,7 @@ const transactionSchema = new mongoose.Schema({
     default: 'pending'
   },
   pixCode: String,
-  date: {
+  createdAt: {
     type: Date,
     default: Date.now
   }
