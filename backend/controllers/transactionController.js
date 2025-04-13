@@ -34,6 +34,26 @@ const approveTransaction = async (req, res) => {
       }
     }
 
+    if (transaction.type === 'withdrawal') {
+      const group = await Group.findById(transaction.groupId);
+      if (!group) {
+        return res.status(404).json({ message: 'Grupo não encontrado' });
+      }
+    
+      const memberIndex = group.members.findIndex(
+        member => member.userId.toString() === transaction.userId.toString()
+      );
+    
+      if (memberIndex !== -1) {
+        const currentContribution = Number(group.members[memberIndex].contribution) || 0;
+        const transactionAmount = Number(transaction.amount) || 0;
+    
+        group.members[memberIndex].contribution = currentContribution - transactionAmount;
+        group.balance = Number(group.balance) - transactionAmount;
+        await group.save();
+      }
+    }
+
     transaction.status = 'approved';
     await transaction.save();
 

@@ -47,6 +47,7 @@ import {
 import { useTransactions } from '../contexts/TransactionContext';
 import { useGroups } from '../contexts/GroupContext';
 import api from '../services/api';
+import React from 'react';
 
 function AdminDashboard() {
   const navigate = useNavigate();
@@ -164,6 +165,54 @@ function AdminDashboard() {
           }
         } else {
           throw new Error('Falha ao atualizar o saldo do grupo');
+        }
+      }
+      
+      // Na função handleApproveTransaction, dentro do bloco if (transaction?.type === 'withdrawal')
+      if (transaction?.type === 'withdrawal') {
+        const valorSaque = Number(transaction.amount);
+      
+        if (!transaction.groupId) {
+          console.error('ID do grupo não encontrado na transação:', transaction);
+          alert('Erro: ID do grupo não encontrado na transação');
+          return;
+        }
+      
+        // Adicionar log para debug
+        console.log('Dados completos da transação de saque:', {
+          ...transaction,
+          accountHolderName: transaction.accountHolderName,
+          bankName: transaction.bankName
+        });
+      
+        const success = await updateGroupBalance(
+          transaction.groupId,
+          -valorSaque,
+          transaction.userId,
+          localStorage.getItem('token'),
+          transaction._id
+        );
+      
+        if (success) {
+          try {
+            // Garantir que os dados do titular e banco sejam incluídos na atualização
+            const updateData = {
+              status: 'approved',
+              accountHolderName: transaction.accountHolderName,
+              bankName: transaction.bankName
+            };
+      
+            console.log('Atualizando transação com dados:', updateData);
+            await updateTransaction(transactionId, updateData);
+            
+            await fetchTransactions(false);
+            alert('Saque aprovado com sucesso!');
+          } catch (updateError) {
+            console.error('Erro ao atualizar status da transação (saque):', updateError);
+            alert('Saque aprovado com sucesso! (O saldo foi atualizado, mas houve um erro ao atualizar o status da transação)');
+          }
+        } else {
+          throw new Error('Falha ao atualizar o saldo do grupo (saque)');
         }
       }
     } catch (error) {
@@ -344,63 +393,92 @@ function AdminDashboard() {
                 {transactions
                   .filter(transaction => transaction.status === 'pending')
                   .map((transaction) => (
-                    <TableRow key={transaction._id}>
-                      <TableCell>
-                        <Chip
-                          label={transaction.type === 'deposit' ? 'Depósito' : 'Saque'}
-                          color={transaction.type === 'deposit' ? 'success' : 'warning'}
-                        />
-                      </TableCell>
-                      <TableCell>R$ {transaction.amount?.toFixed(2)}</TableCell>
-                      <TableCell>
-                        {/* Corrigido para acessar a propriedade name do objeto user */}
-                        {transaction.userId?.name || transaction.userId || 'N/A'}
-                      </TableCell>
-                      <TableCell>{transaction.userEmail || 'N/A'}</TableCell>
-                      <TableCell>
-                        {/* Corrigido para acessar a propriedade name do objeto group */}
-                        {transaction.groupId?.name || transaction.groupId || 'N/A'}
-                      </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          {transaction.pixCode || 'N/A'}
-                          {transaction.pixCode && (
-                            <IconButton 
-                              size="small" 
-                              onClick={() => {
-                                navigator.clipboard.writeText(transaction.pixCode);
-                              }}
-                            >
-                              <ContentCopy fontSize="small" />
-                            </IconButton>
-                          )}
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        {new Date(transaction.createdAt).toLocaleDateString('pt-BR')}
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          startIcon={<Check />}
-                          color="success"
-                          variant="contained"
-                          size="small"
-                          sx={{ mr: 1 }}
-                          onClick={() => handleApproveTransaction(transaction._id)}
-                        >
-                          Aprovar
-                        </Button>
-                        <Button
-                          startIcon={<Close />}
-                          color="error"
-                          variant="outlined"
-                          size="small"
-                          onClick={() => handleRejectTransaction(transaction._id)}
-                        >
-                          Rejeitar
-                        </Button>
-                      </TableCell>
-                    </TableRow>
+                    <React.Fragment key={transaction._id}>
+                      <TableRow>
+                        <TableCell>
+                          <Chip
+                            label={transaction.type === 'deposit' ? 'Depósito' : 'Saque'}
+                            color={transaction.type === 'deposit' ? 'success' : 'warning'}
+                          />
+                        </TableCell>
+                        <TableCell>R$ {transaction.amount?.toFixed(2)}</TableCell>
+                        <TableCell>{transaction.userId?.name || transaction.userId || 'N/A'}</TableCell>
+                        <TableCell>{transaction.userEmail || 'N/A'}</TableCell>
+                        <TableCell>{transaction.groupId?.name || transaction.groupId || 'N/A'}</TableCell>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            {transaction.pixCode || 'N/A'}
+                            {transaction.pixCode && (
+                              <IconButton 
+                                size="small" 
+                                onClick={() => {
+                                  navigator.clipboard.writeText(transaction.pixCode);
+                                }}
+                              >
+                                <ContentCopy fontSize="small" />
+                              </IconButton>
+                            )}
+                          </Box>
+                        </TableCell>
+                        <TableCell>{new Date(transaction.createdAt).toLocaleDateString('pt-BR')}</TableCell>
+                        <TableCell>
+                          <Button
+                            startIcon={<Check />}
+                            color="success"
+                            variant="contained"
+                            size="small"
+                            sx={{ mr: 1 }}
+                            onClick={() => handleApproveTransaction(transaction._id)}
+                          >
+                            Aprovar
+                          </Button>
+                          <Button
+                            startIcon={<Close />}
+                            color="error"
+                            variant="outlined"
+                            size="small"
+                            onClick={() => handleRejectTransaction(transaction._id)}
+                          >
+                            Rejeitar
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                      {transaction.type === 'withdrawal' && (
+                        <TableRow>
+                          <TableCell colSpan={8} sx={{ bgcolor: '#f5f5f5' }}>
+                            <Box sx={{ pl: 2, py: 1 }}>
+                              <Typography variant="subtitle2" gutterBottom>
+                                <strong>Informações do Saque:</strong>
+                              </Typography>
+                              <Grid container spacing={2}>
+                                <Grid item xs={12} sm={4}>
+                                  <Typography variant="body2">
+                                    <strong>Código PIX:</strong> {transaction.pixCode || 'N/A'}
+                                  </Typography>
+                                </Grid>
+                                <Grid item xs={12} sm={4}>
+                                  <Typography variant="body2">
+                                    <strong>Nome do Titular:</strong> {transaction.accountHolderName || 'N/A'}
+                                  </Typography>
+                                </Grid>
+                                <Grid item xs={12} sm={4}>
+                                  <Typography variant="body2">
+                                    <strong>Banco:</strong> {transaction.bankName || 'N/A'}
+                                  </Typography>
+                                </Grid>
+                                {transaction.motivo && (
+                                  <Grid item xs={12}>
+                                    <Typography variant="body2">
+                                      <strong>Motivo do Saque:</strong> {transaction.motivo}
+                                    </Typography>
+                                  </Grid>
+                                )}
+                              </Grid>
+                            </Box>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </React.Fragment>
                   ))}
               </TableBody>
             </Table>

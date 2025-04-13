@@ -37,11 +37,18 @@ router.get('/', authenticateUser, async (req, res) => {
 // Rota para criar transação
 router.post('/', authenticateUser, async (req, res) => {
   try {
-    const { groupId, type, amount, pixCode } = req.body;
+    const { 
+      groupId, 
+      type, 
+      amount, 
+      pixCode,
+      accountHolderName, // Adicionar estes campos
+      bankName,
+      motivo
+    } = req.body;
     
     console.log('Dados recebidos no backend:', req.body);
 
-    // Validar groupId
     try {
       const objectId = new mongoose.Types.ObjectId(groupId);
       
@@ -51,6 +58,9 @@ router.post('/', authenticateUser, async (req, res) => {
         type,
         amount,
         pixCode,
+        accountHolderName, // Incluir estes campos
+        bankName,
+        motivo,
         status: 'pending'
       });
 

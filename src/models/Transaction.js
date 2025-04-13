@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 
+// Certifique-se de que o modelo inclui os campos necessários
 const transactionSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -25,15 +26,20 @@ const transactionSchema = new mongoose.Schema({
     enum: ['pending', 'approved', 'rejected'],
     default: 'pending'
   },
-  pixCode: String,
-  accountHolderName: String,
-  bankName: String,
-  motivo: String,
-  withdrawalType: String,
+  pixCode: {
+    type: String
+  },
+  accountHolderName: {
+    type: String
+  },
+  bankName: {
+    type: String
+  },
+  motivo: {
+    type: String
+  },
   createdAt: {
     type: Date,
     default: Date.now
   }
 });
-
-module.exports = mongoose.model('Transaction', transactionSchema);

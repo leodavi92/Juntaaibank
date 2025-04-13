@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { 
   Box, 
   Container, 
@@ -38,6 +38,7 @@ function Groups() {
   // Usar groups em vez de grupos para manter consistência com o contexto
   const { groups, loading, error, fetchGroups, criarGrupo } = useGroups();
   const { user } = useUser();  // Add useUser hook to access current user data
+  const { addTransaction, checkPendingTransactions } = useTransactions(); // Corrigido: use o hook diretamente
   
   // Adicionar useEffect para debug
   useEffect(() => {
@@ -73,6 +74,9 @@ function Groups() {
   const [depositoStatus, setDepositoStatus] = useState('inicial');
   const [codigoPagamento, setCodigoPagamento] = useState('');
   const [pagamentosPendentes, setPagamentosPendentes] = useState([]);
+  const [codigoPix, setCodigoPix] = useState(''); // Adicionar estado para código PIX
+  const [nomeTitular, setNomeTitular] = useState('');
+  const [nomeBanco, setNomeBanco] = useState('');
 
   const handleClickOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
@@ -107,26 +111,78 @@ function Groups() {
     setMotivoSaque('');
   };
 
-  const solicitarSaque = () => {
-    // Implementar lógica de saque com API
-    console.log('Solicitando saque:', {
-      grupoId: grupoSelecionado._id,
-      valor: Number(valorSaque),
-      tipo: tipoSaque,
-      motivo: motivoSaque
-    });
-    
-    // Fechar o diálogo após a solicitação
-    handleSaqueClose();
-    
-    // Atualizar a lista de grupos
-    fetchGroups();
+  const solicitarSaque = async () => {
+    try {
+      if (!valorSaque || valorSaque <= 0) {
+        alert('Por favor, insira um valor válido');
+        return;
+      }
+
+      if (!grupoSelecionado || !grupoSelecionado._id) {
+        console.log('Grupo selecionado:', grupoSelecionado);
+        alert('Erro: Grupo não selecionado corretamente');
+        return;
+      }
+
+      // Validar campos obrigatórios
+      if (!codigoPix || !nomeTitular || !nomeBanco) {
+        alert('Por favor, preencha todos os campos (Código PIX, Nome do Titular e Banco)');
+        return;
+      }
+
+      // Adicionar logs para debug
+      console.log('Valores dos campos de saque:');
+      console.log('Código PIX:', codigoPix);
+      console.log('Nome do Titular:', nomeTitular);
+      console.log('Nome do Banco:', nomeBanco);
+
+      const dadosTransacao = {
+        type: 'withdrawal',
+        amount: Number(valorSaque),
+        groupId: grupoSelecionado._id.toString(),
+        status: 'pending',
+        motivo: motivoSaque,
+        pixCode: codigoPix,
+        accountHolderName: nomeTitular, // Certifique-se de que este campo está sendo preenchido
+        bankName: nomeBanco, // Certifique-se de que este campo está sendo preenchido
+        withdrawalType: tipoSaque,
+        userId: user._id
+      };
+
+      console.log('Dados completos da transação:', dadosTransacao);
+
+      const resultado = await addTransaction(dadosTransacao);
+      console.log('Resposta do servidor após criar transação:', resultado);
+      
+      if (resultado && resultado._id) {
+        alert('Solicitação de saque enviada com sucesso!');
+        handleSaqueClose();
+        await fetchGroups();
+      } else {
+        throw new Error('Erro ao processar a solicitação de saque: resposta inválida do servidor');
+      }
+    } catch (error) {
+      console.error('Erro ao solicitar saque:', error);
+      alert(`Erro ao solicitar saque: ${error.message || 'Erro desconhecido'}`);
+    }
   };
 
-  const handleDeposito = (grupo) => {
+  const handleDeposito = async (grupo) => {
     console.log('Grupo recebido:', grupo);
-    setGrupoSelecionado(grupo);
-    setDepositoOpen(true);
+    try {
+      const temTransacaoPendente = await checkPendingTransactions(grupo._id);
+      setGrupoSelecionado(grupo);
+      setDepositoOpen(true); // Mantenha a tela de depósito aberta
+  
+      if (temTransacaoPendente) {
+        setDepositoStatus('aguardando'); // Atualize o status para 'aguardando'
+        setCodigoPagamento('PIX-EXISTENTE'); // Exemplo de código PIX existente
+        return;
+      }
+    } catch (error) {
+      console.error('Erro ao verificar transações pendentes:', error);
+      alert('Erro ao verificar transações pendentes. Tente novamente.');
+    }
   };
 
   const handleDepositoClose = () => {
@@ -140,8 +196,9 @@ function Groups() {
       setCodigoPagamento('');
     }, 200);
   };
-
-  const { addTransaction } = useTransactions();
+  
+  // Remova esta linha duplicada
+  // const { addTransaction } = useTransactions();
   
   const realizarDeposito = async () => {
     try {
@@ -170,9 +227,8 @@ function Groups() {
       console.log('Resultado da transação:', resultado);
 
       if (resultado && resultado._id) {
-        setCodigoPagamento(codigoPix);
+        setCodigoPagamento(codigoPix); // Atualiza o estado com o novo código PIX
         setDepositoStatus('aguardando');
-        // Removido o fetchGroups daqui
       } else {
         throw new Error('Erro ao processar a transação: resposta inválida do servidor');
       }
@@ -454,6 +510,30 @@ function Groups() {
             InputProps={{
               startAdornment: <InputAdornment position="start">R$</InputAdornment>,
             }}
+          />
+          <TextField
+            margin="dense"
+            label="Código PIX"
+            fullWidth
+            variant="outlined"
+            value={codigoPix}
+            onChange={(e) => setCodigoPix(e.target.value)}
+          />
+          <TextField
+            margin="dense"
+            label="Nome do Titular"
+            fullWidth
+            variant="outlined"
+            value={nomeTitular}
+            onChange={(e) => setNomeTitular(e.target.value)}
+          />
+          <TextField
+            margin="dense"
+            label="Nome do Banco"
+            fullWidth
+            variant="outlined"
+            value={nomeBanco}
+            onChange={(e) => setNomeBanco(e.target.value)}
           />
           <FormControlLabel
             control={

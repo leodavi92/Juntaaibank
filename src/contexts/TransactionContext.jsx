@@ -36,43 +36,43 @@ export const TransactionProvider = ({ children }) => {
     }
   };
 
-  const addTransaction = async (transactionData) => {
+  const checkPendingTransactions = async (groupId) => {
     try {
       const token = localStorage.getItem('token');
-      
       if (!token) {
         throw new Error('Usuário não autenticado');
       }
 
-      // Simplificar os dados enviados
-      const dados = {
-        type: transactionData.type,
-        amount: Number(transactionData.amount),
-        groupId: transactionData.groupId.toString(), // Garantir que seja string
-        pixCode: transactionData.pixCode,
-        status: transactionData.status,
-        userId: localStorage.getItem('userId')
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
       };
 
-      console.log('Dados da transação antes do envio:', dados);
+      const response = await api.get(`/transactions?groupId=${groupId}`, { headers });
+      // Filtrar transações pendentes
+      const pendingTransactions = response.data.filter(transaction => transaction.status === 'pending');
+      return pendingTransactions.length > 0; // Retorna true se houver transações pendentes
+    } catch (error) {
+      console.error('Erro ao verificar transações pendentes:', error);
+      throw error;
+    }
+  };
 
-      const response = await axios.post(
-        'http://localhost:3001/api/transactions',
-        dados,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-
+  // Na função addTransaction do contexto
+  const addTransaction = async (transactionData) => {
+    try {
+      console.log('Enviando dados de transação:', transactionData);
+      
+      const response = await api.post('/transactions', transactionData);
+      
       if (response.data) {
-        setTransactions(prev => [...prev, response.data]);
+        console.log('Transação criada com sucesso:', response.data);
         return response.data;
       }
+      
+      return null;
     } catch (error) {
-      console.error('Erro detalhado:', error.response?.data);
+      console.error('Erro ao adicionar transação:', error);
       throw error;
     }
   };
@@ -105,13 +105,36 @@ export const TransactionProvider = ({ children }) => {
     }
   };
 
+  const updateTransactionStatus = async (transactionId, newStatus) => {
+    try {
+      const token = localStorage.getItem('token');
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      };
+  
+      const response = await api.put(`/transactions/${transactionId}`, { status: newStatus }, { headers });
+      if (response.data) {
+        setTransactions(prevTransactions => 
+          prevTransactions.map(t => 
+            t._id === transactionId ? { ...t, status: newStatus } : t
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Erro ao atualizar status da transação:', error);
+      throw error;
+    }
+  };
+
   // Adicione a função updateTransaction ao objeto de contexto
   return (
     <TransactionContext.Provider value={{ 
       transactions, 
       addTransaction,
       fetchTransactions,
-      updateTransaction // Adicionar a função updateTransaction aqui
+      updateTransaction,
+      checkPendingTransactions
     }}>
       {children}
     </TransactionContext.Provider>
@@ -125,3 +148,21 @@ export function useTransactions() {
   }
   return context;
 }
+
+export { TransactionContext };
+
+const handleDeposito = async (grupo) => {
+  console.log('Grupo recebido:', grupo);
+  try {
+    const temTransacaoPendente = await checkPendingTransactions(grupo._id);
+    if (temTransacaoPendente) {
+      alert('Você já possui um depósito pendente neste grupo. Aguarde a aprovação do administrador.');
+      return;
+    }
+    setGrupoSelecionado(grupo);
+    setDepositoOpen(true);
+  } catch (error) {
+    console.error('Erro ao verificar transações pendentes:', error);
+    alert('Erro ao verificar transações pendentes. Tente novamente.');
+  }
+};
